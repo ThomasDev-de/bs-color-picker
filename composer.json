@@ -1,0 +1,17 @@
+{
+  "name": "webcito/bs-color-picker",
+  "description": "description",
+  "version": "1.0.0",
+  "minimum-stability": "stable",
+  "license": "proprietary",
+  "authors": [
+    {
+      "name": "thomas",
+      "email": "email@example.com"
+    }
+  ],
+  "require": {
+    "components/jquery": "^3.7",
+    "twbs/bootstrap": "^5"
+  }
+}
