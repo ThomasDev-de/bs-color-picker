@@ -10,6 +10,7 @@
         },
         DEFAULTS: {
             emptyColor: '#FFFFFF',
+            format: 'rgba',
             debug: true
         }
     };
@@ -19,6 +20,8 @@
     const canvasClass = 'bs-color-picker-canvas';
     const markerClass = 'bs-color-picker-marker';
     const previewClass = 'bs-color-picker-preview';
+    const brightnessSliderClass = 'bs-color-picker-brightness-slider';
+    const opacitySliderClass = 'bs-color-picker-opacity-slider';
 
     $.fn.bsColorPicker = function (optionsOrMethod, params) {
         if ($(this).length > 1) {
@@ -50,7 +53,7 @@
         if (methodGiven) {
             switch (optionsOrMethod) {
                 case 'val':
-                    setValues($element, params);
+                    setValue($element, params);
                     break;
             }
         }
@@ -59,86 +62,168 @@
     };
 
     function parseColor(color) {
-        // Hex-Farbwerte: #RRGGBB
-        if (/^#[0-9A-Fa-f]{6}$/.test(color)) {
-            return hexToRgb(color); // Bestehende Funktion verwenden
+        // Hex-Farbwerte: #RRGGBB oder #RGB
+        if (color.startsWith('#')) {
+            if (/^#[0-9A-Fa-f]{6}$/.test(color)) {
+                return hexToRgb(color);
+            } else if (/^#[0-9A-Fa-f]{3}$/.test(color)) {
+                // Kurz-Hex in vollständiges Hex umwandeln
+                const r = color[1] + color[1];
+                const g = color[2] + color[2];
+                const b = color[3] + color[3];
+                return hexToRgb('#' + r + g + b);
+            }
         }
 
-        // RGB oder RGBA: rgb(255, 0, 45) oder rgba(255, 0, 45, 0.5)
+        // RGB/RGBA: rgb(255, 0, 45) oder rgba(255, 0, 45, 0.5)
         const rgbaRegex = /^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(?:,\s*([01](?:\.\d+)?))?\s*\)$/;
-        const match = rgbaRegex.exec(color);
+        const rgbaMatch = rgbaRegex.exec(color);
 
-        if (match) {
-            const r = parseInt(match[1], 10);
-            const g = parseInt(match[2], 10);
-            const b = parseInt(match[3], 10);
-            const a = match[5] ? parseFloat(match[5]) : 1;
+        if (rgbaMatch) {
+            const r = parseInt(rgbaMatch[1], 10);
+            const g = parseInt(rgbaMatch[2], 10);
+            const b = parseInt(rgbaMatch[3], 10);
+            const a = rgbaMatch[4] ? parseFloat(rgbaMatch[4]) : 1;
 
-            // RGB-Werte validieren
             if (r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255 || a < 0 || a > 1) {
-                console.error('Ungültige RGBA-Werte:', { r, g, b, a });
+                console.error('Ungültige RGBA-Werte:', {r, g, b, a});
                 return null;
             }
 
-            console.log('Parsed RGBA:', { r, g, b, a }); // Debug-Ausgabe
-            return { r, g, b, a }; // Rückgabe als Objekt
+            return {r, g, b, a};
         }
 
-        // Ungültiges Format
+        // HSL/HSLA: hsl(360, 100%, 50%) oder hsla(360, 100%, 50%, 0.5)
+        const hslaRegex = /^hsla?\(\s*(\d{1,3})\s*,\s*(\d{1,3})%\s*,\s*(\d{1,3})%\s*(?:,\s*([01](?:\.\d+)?))?\s*\)$/;
+        const hslaMatch = hslaRegex.exec(color);
+
+        if (hslaMatch) {
+            const h = parseInt(hslaMatch[1], 10);
+            const s = parseInt(hslaMatch[2], 10);
+            const l = parseInt(hslaMatch[3], 10);
+            const a = hslaMatch[4] ? parseFloat(hslaMatch[4]) : 1;
+
+            if (h < 0 || h > 360 || s < 0 || s > 100 || l < 0 || l > 100 || a < 0 || a > 1) {
+                console.error('Ungültige HSLA-Werte:', {h, s, l, a});
+                return null;
+            }
+
+            // HSL zu RGB konvertieren
+            const rgb = hslToRgb(h, s, l);
+            return {...rgb, a};
+        }
+
         console.error('Ungültiges Farbformat:', color);
         return null;
     }
-    function setValues($element, color) {
-        console.log('Eingabefarbe:', color); // Debug-Ausgabe zur Überprüfung der Eingabe
+
+// Hilfsfunktion für HSL zu RGB Konvertierung
+    function hslToRgb(h, s, l) {
+        s /= 100;
+        l /= 100;
+
+        const c = (1 - Math.abs(2 * l - 1)) * s;
+        const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+        const m = l - c / 2;
+        let r = 0, g = 0, b = 0;
+
+        if (0 <= h && h < 60) {
+            r = c;
+            g = x;
+            b = 0;
+        } else if (60 <= h && h < 120) {
+            r = x;
+            g = c;
+            b = 0;
+        } else if (120 <= h && h < 180) {
+            r = 0;
+            g = c;
+            b = x;
+        } else if (180 <= h && h < 240) {
+            r = 0;
+            g = x;
+            b = c;
+        } else if (240 <= h && h < 300) {
+            r = x;
+            g = 0;
+            b = c;
+        } else if (300 <= h && h < 360) {
+            r = c;
+            g = 0;
+            b = x;
+        }
+
+        return {
+            r: Math.round((r + m) * 255),
+            g: Math.round((g + m) * 255),
+            b: Math.round((b + m) * 255)
+        };
+    }
+
+    function setMarker($element) {
+        const $canvas = getCanvas($element);
+        const $marker = getMarker($element);
+        const $opacitySlider = getOpacitySlider($element);
+        const opacity = parseFloat($opacitySlider.val());
+        const selected = $canvas.data('selected');
+        const {r, g, b} = selected;
+
+        const canvas = $canvas[0];
+        const ctx = canvas.getContext('2d');
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+
+        for (let y = 0; y < canvas.height; y++) {
+            for (let x = 0; x < canvas.width; x++) {
+                const index = (y * canvas.width + x) * 4;
+                if (
+                    imageData[index] === r &&
+                    imageData[index + 1] === g &&
+                    imageData[index + 2] === b
+                ) {
+                    $marker.css({
+                        top: y + 'px',
+                        left: x + 'px',
+                        background: `rgba(${r}, ${g}, ${b}, ${opacity})`,
+                        display: 'block'
+                    });
+                    return;
+                }
+            }
+        }
+    }
+
+    function setValue($element, color) {
+        const $dropdown = getDropdown($element);
+        const settings = getSettings($element);
+        const $canvas = getCanvas($element);
+        const $brightnessSlider = getBrightnessSlider($element);
+        const $opacitySlider = getOpacitySlider($element);
+        if (settings.debug) {
+            log('setValue:', color, 'in format', settings.format); // Debug-Ausgabe zur Überprüfung der Eingabe
+        }
 
         // Farbe parsen
         const parsedColor = parseColor(color);
 
         if (!parsedColor) {
-            console.error('Farbkonvertierung fehlgeschlagen:', color);
+            if (settings.debug) {
+                log('Color conversion failed:', color);
+            }
             return;
+        } else {
+            if (settings.debug) {
+                log('Converted color values:', parsedColor);
+            }
         }
 
-        console.log('Konvertierte Farbwerte:', parsedColor);
-
-        // RGB in HSL konvertieren
-        const colorInHsl = rgbToHsl(parsedColor.r, parsedColor.g, parsedColor.b, parsedColor.a, false);
-
-        if (!colorInHsl) {
-            console.error('HSL-Konvertierung fehlgeschlagen:', parsedColor);
-            return;
+        const selected = {
+            r: parsedColor.r,
+            g: parsedColor.g,
+            b: parsedColor.b
         }
-
-        // Berechnung der Marker-Position
-        const hue = colorInHsl.h;
-        const saturation = colorInHsl.s;
-        const radius = 150; // Beispielwert
-        const angleInRadians = (hue * Math.PI) / 180;
-        const distanceFromCenter = radius * (saturation / 100);
-
-        console.log('Berechnete Werte:', { hue, saturation, angleInRadians, distanceFromCenter });
-
-        // Marker-Position berechnen
-        const x = radius + distanceFromCenter * Math.cos(angleInRadians);
-        const y = radius + distanceFromCenter * Math.sin(angleInRadians);
-
-        console.log('Marker Position:', { x, y });
-
-        const $marker = $element.find('.bs-color-picker-marker');
-        if (!isNaN(x) && !isNaN(y)) {
-            // Berücksichtige Alpha-Wert bei der CSS-Hintergrundfarbe
-            const backgroundColor = colorInHsl.a === 1
-                ? `hsl(${colorInHsl.h}, ${colorInHsl.s}%, ${colorInHsl.l}%)`
-                : `hsla(${colorInHsl.h}, ${colorInHsl.s}%, ${colorInHsl.l}%, ${colorInHsl.a})`;
-
-            $marker.css({
-                left: `${x}px`,
-                top: `${y}px`,
-                backgroundColor: backgroundColor,
-            });
-
-            console.log('Hintergrundfarbe des Markers:', backgroundColor);
-        }
+        $canvas.data('selected', selected);
+        $brightnessSlider.val(parsedColor.a);
+        updatePreviewAndValues($element, selected, parsedColor.a, parsedColor.a, true);
     }
 
     function hexToRgb(hex) {
@@ -151,11 +236,9 @@
         const g = (bigint >> 8) & 255;
         const b = bigint & 255;
 
-        console.log('Konvertierte HEX zu RGB:', { r, g, b }); // Debug-Ausgabe
-        return { r, g, b };
+        console.log('Konvertierte HEX zu RGB:', {r, g, b}); // Debug-Ausgabe
+        return {r, g, b};
     }
-
-
 
 
     function log(message, ...params) {
@@ -191,38 +274,60 @@
     function events($element) {
         const $dropdown = getDropdown($element);
         const settings = getSettings($element);
-        $dropdown.on('click', '.' + submitBtnClass, function (e) {
-            e.preventDefault();
-            // Hol alle gespeicherten Formate
-            const selectedFormats = $element.data('selected');
+        const $canvas = getCanvas($element);
+        const $brightnessSlider = getBrightnessSlider($element);
+        const $opacitySlider = getOpacitySlider($element);
 
-            if (selectedFormats) {
-                // Speichere alle Formate im data-selected
-                $element.data('selected', selectedFormats);
+        // Canvas Click Handler
+        $dropdown
+            .on('click', '.' + canvasClass, function (event) {
+                const offset = $canvas.offset();
+                const clickX = event.pageX - offset.left;
+                const clickY = event.pageY - offset.top;
 
-                if (settings.debug) {
-                    log('Übernommene Farbeinstellungen: ', selectedFormats);
+                const ctx = $canvas[0].getContext('2d');
+                const pixel = ctx.getImageData(clickX, clickY, 1, 1).data;
+                const [r, g, b] = pixel;
+
+                const selectedColor = {r, g, b};
+                $canvas.data('selected', selectedColor);
+                const currentBrightness = parseFloat($brightnessSlider.val());
+                const currentOpacity = parseFloat($opacitySlider.val());
+
+                updatePreviewAndValues($element, selectedColor, currentBrightness, currentOpacity);
+
+            })
+            .on('click', '.' + submitBtnClass, function (e) {
+                e.preventDefault();
+                const selectedFormats = $element.data('selected');
+
+                if (selectedFormats) {
+                    $element.data('selected', selectedFormats);
+
+                    if (settings.debug) {
+                        log('Übernommene Farbeinstellungen: ', selectedFormats);
+                    }
+                } else {
+                    if (settings.debug) {
+                        log('Keine Farbeinstellungen zum Speichern gefunden.');
+                    }
                 }
-            } else {
-                if (settings.debug) {
-                    log('Keine Farbeinstellungen zum Speichern gefunden.');
+
+                const $dropdownButton = getDropdownButton($element);
+                if ($dropdownButton.length > 0) {
+                    updateButtonColor($element, selectedFormats.rgb);
+                    $dropdownButton.dropdown('hide');
                 }
-            }
-            const $dropdownButton = getDropdownButton($element);
-            if ($dropdownButton.length > 0) {
-                // Alle vorhandenen Klassen holen
-                const classes = $dropdownButton.attr('class').split(/\s+/);
+            })
+            .on('input', '.' + brightnessSliderClass + ', .' + opacitySliderClass, function () {
+                const currentBrightness = parseFloat($brightnessSlider.val());
+                const currentOpacity = parseFloat($opacitySlider.val());
+                const selectedColor = $canvas.data('selected');
 
-                // Filtere die Klassen, die mit 'btn-' beginnen
-                const btnClasses = classes.filter(c => c.startsWith('btn-'));
-
-                // Entferne jede gefundene 'btn-' Klasse
-                $dropdownButton.removeClass(btnClasses.join(' '));
-
-                $dropdownButton.dropdown('hide'); // Bootstrap schließt programmgesteuert
-                $dropdownButton.css('backgroundColor', selectedFormats.rgb);
-            }
-        })
+                if (selectedColor) {
+                    updatePreviewAndValues($element, selectedColor, currentBrightness, currentOpacity);
+                }
+            });
     }
 
     function getDropdown($element) {
@@ -235,6 +340,14 @@
 
     function getCanvas($element) {
         return getDropdown($element).find('.' + canvasClass);
+    }
+
+    function getBrightnessSlider($element) {
+        return getDropdown($element).find('.' + brightnessSliderClass);
+    }
+
+    function getOpacitySlider($element) {
+        return getDropdown($element).find('.' + opacitySliderClass);
     }
 
     function getMarker($element) {
@@ -263,113 +376,20 @@
             class: 'dropdown-menu p-3',
         }).appendTo(dropdown);
 
-        // Farbring dem Dropdown-Menü hinzufügen
-        createFilledColorWheel($element, dropdownMenu);
-
-        // Übernehmen-Button hinzufügen
-        const $submitButton = $('<button>', {
-            text: 'Übernehmen',
-            class: 'btn btn-primary mt-3 ' + submitBtnClass,
-        });
-
-        // Übernehmen-Button ins Menü einfügen
-        dropdownMenu.append($submitButton);
-    }
-
-    function setMarkerPosition($element, color) {
-        const $marker = getMarker($element);
-        const $canvas = getCanvas($element);
-        const canvas = $canvas[0];
-        const ctx = canvas.getContext('2d');
-
-    }
-    function updatePreviewAndValues($element, color, brightness, opacity, $preview, $hexDisplay, $rgbDisplay, $hslDisplay) {
-        const r = Math.round(color.r * brightness);
-        const g = Math.round(color.g * brightness);
-        const b = Math.round(color.b * brightness);
-        const parsedOpacity = parseFloat(opacity); // Sicherstellen, dass Opacity ein Float ist
-
-        console.log('Received values - R:', r, 'G:', g, 'B:', b, 'Brightness:', brightness, 'Opacity:', parsedOpacity);
-
-        // HEX-Wert berechnen
-        const hex = `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
-
-        // Generiere immer RGBA (auch wenn Opacity 1 ist)
-        const rgba = `rgba(${r}, ${g}, ${b}, ${parsedOpacity})`;
-
-        // HSL(A)-Wert berechnen
-        const hsl = rgbToHsl(r, g, b, parsedOpacity);
-
-        // Vorschaufeld aktualisieren
-        $preview.css('background-color', rgba);
-
-        // Farbwerte in den Displays anzeigen
-        $hexDisplay.text(`HEX: ${hex}`);
-        $rgbDisplay.text(`RGB(A): ${rgba}`);
-        $hslDisplay.text(`HSL(A): ${hsl}`);
-
-        // In den Daten des Elements speichern
-        const colorFormats = {
-            hex: hex,
-            rgb: rgba,
-            hsl: hsl
-        };
-
-        $element.data('selected', colorFormats);
-
-        // Debugging: Ausgaben überprüfen
-        console.log('Saved colorFormats:', colorFormats);
-    }
-
-    function createFilledColorWheel($element, $menu) {
-        const settings = getSettings($element);
-        const size = 300; // Durchmesser des Kreises
-        const radius = size / 2; // Radius des Kreises
-        let currentOpacity = 1; // Standard-Deckkraft
-        let currentBrightness = 1; // Standard-Helligkeit
-        let selectedColor = null; // Zuletzt ausgewählte Farbe (RGB)
-
-        // Sicherstellen, dass Settings existieren
-        const emptyColor = settings.emptyColor || '#FFFFFF';
-
-        // Container für den Farbkreis
+        // Farbrad-Container erstellen
         const $colorContainer = $('<div>', {
             class: 'full-color-wheel',
             style: `
-            width: ${size}px;
-            height: ${size}px;
+            width: 300px;
+            height: 300px;
             position: relative;
-            clip-path: circle(${radius}px at ${radius}px ${radius}px); /* Zuschneiden auf Kreis */
+            clip-path: circle(150px at 150px 150px);
             overflow: hidden;
         `,
         });
 
-        // Canvas für das Farbrad
-        const canvas = document.createElement('canvas');
-        canvas.width = size;
-        canvas.height = size;
-        const context = canvas.getContext('2d');
-
-        // Farbrad rendern
-        for (let y = 0; y < size; y++) {
-            for (let x = 0; x < size; x++) {
-                const dx = x - radius; // Entfernung zur Mitte (x-Achse)
-                const dy = y - radius; // Entfernung zur Mitte (y-Achse)
-                const distance = Math.sqrt(dx * dx + dy * dy); // Distanz zur Mitte
-
-                if (distance <= radius) {
-                    const angle = Math.atan2(dy, dx);
-                    const hue = ((angle * 180) / Math.PI + 360) % 360; // Winkel -> Farbton
-                    const saturation = distance / radius; // Sättigung
-
-                    const color = `hsl(${hue}, ${saturation * 100}%, 50%)`; // HSL-Farbe
-                    context.fillStyle = color;
-                    context.fillRect(x, y, 1, 1);
-                }
-            }
-        }
-
-        // Canvas ins DOM einfügen
+        // Canvas für das Farbrad mit Marker erstellen
+        const canvas = createFilledColorWheel();
         const $canvas = $(canvas)
             .css({
                 position: 'absolute',
@@ -396,7 +416,7 @@
         });
         $colorContainer.append($marker);
 
-        // Vorschaufeld für die aktuelle Farbe
+        // Vorschaufeld
         const $preview = $('<div>', {
             class: previewClass,
             style: `
@@ -404,59 +424,37 @@
             height: 30px;
             margin-top: 10px;
             border: 1px solid #ddd;
-            background: ${emptyColor}; /* Standardfarbe aus den Settings */
+            background: ${settings.emptyColor};
         `,
         });
 
+        // Farbwert-Anzeigen
         const $hexDisplay = $('<div>', {
             class: 'hex-display mt-2',
             style: 'font-size: 12px;',
-            text: `HEX: ${emptyColor}`, // Initialwert aus emptyColor
+            text: `HEX: ${settings.emptyColor}`,
         });
 
         const $rgbDisplay = $('<div>', {
             class: 'rgb-display',
             style: 'font-size: 12px;',
-            text: `RGB: rgb(255, 255, 255)`, // Standardwert
+            text: `RGB: rgb(255, 255, 255)`,
         });
 
         const $hslDisplay = $('<div>', {
             class: 'hsl-display',
             style: 'font-size: 12px;',
-            text: `HSL: hsl(0, 0%, 100%)`, // Standard-Helligkeit bei Weiß
+            text: `HSL: hsl(0, 0%, 100%)`,
         });
 
-        $canvas.on('click', function (event) {
-            const offset = $canvas.offset();
-            const clickX = event.pageX - offset.left;
-            const clickY = event.pageY - offset.top;
-
-            const pixel = context.getImageData(clickX, clickY, 1, 1).data;
-            const [r, g, b] = pixel;
-
-            selectedColor = {r, g, b};
-
-            updatePreviewAndValues($element, selectedColor, currentBrightness, currentOpacity, $preview, $hexDisplay, $rgbDisplay, $hslDisplay);
-
-            $marker.css({
-                top: clickY + 'px',
-                left: clickX + 'px',
-                background: `rgba(${r}, ${g}, ${b}, ${currentOpacity})`,
-                display: 'block',
-            });
-        });
-
+        // Slider
         const $brightnessSlider = $('<input>', {
             type: 'range',
             min: 0,
             max: 1,
             step: 0.01,
-            value: currentBrightness,
-            class: 'brightness-slider form-range',
-        }).on('input', function () {
-            currentBrightness = parseFloat($(this).val());
-            if (!selectedColor) selectedColor = hexToRgb(emptyColor);
-            updatePreviewAndValues($element, selectedColor, currentBrightness, currentOpacity, $preview, $hexDisplay, $rgbDisplay, $hslDisplay);
+            value: 1,
+            class: 'form-range ' + brightnessSliderClass,
         });
 
         const $opacitySlider = $('<input>', {
@@ -464,21 +462,131 @@
             min: 0,
             max: 1,
             step: 0.01,
-            value: currentOpacity,
-            class: 'opacity-slider form-range',
-        }).on('input', function () {
-            currentOpacity = parseFloat($(this).val());
-            if (!selectedColor) selectedColor = hexToRgb(emptyColor);
-            updatePreviewAndValues($element, selectedColor, currentBrightness, currentOpacity, $preview, $hexDisplay, $rgbDisplay, $hslDisplay);
+            value: 1,
+            class: 'form-range ' + opacitySliderClass,
         });
 
         const $sliderContainer = $('<div>', {
             style: 'text-align: center; margin-top: 10px;',
         }).append($brightnessSlider, $opacitySlider);
 
-        $menu.append($colorContainer, $preview, $hexDisplay, $rgbDisplay, $hslDisplay, $sliderContainer);
+        // Alle Elemente dem Dropdown-Menü hinzufügen
+        dropdownMenu.append(
+            $colorContainer,
+            $preview,
+            $hexDisplay,
+            $rgbDisplay,
+            $hslDisplay,
+            $sliderContainer
+        );
+
+        // Übernehmen-Button
+        const $submitButton = $('<button>', {
+            text: 'Übernehmen',
+            class: 'btn btn-primary mt-3 ' + submitBtnClass,
+        });
+        dropdownMenu.append($submitButton);
     }
 
+    function updateButtonColor($element, rgba) {
+        const $dropdownButton = getDropdownButton($element);
+        const classes = $dropdownButton.attr('class').split(/\s+/);
+        const btnClasses = classes.filter(c => c.startsWith('btn-'));
+        $dropdownButton.removeClass(btnClasses.join(' '));
+        $dropdownButton.css('backgroundColor', rgba);
+    }
+
+    function updatePreviewAndValues($element, color, brightness, opacity, setColorToElement = false) {
+        const settings = getSettings($element);
+        const $dropdown = getDropdown($element);
+        const $preview = $dropdown.find('.' + previewClass);
+        const $hexDisplay = $dropdown.find('.hex-display');
+        const $rgbDisplay = $dropdown.find('.rgb-display');
+        const $hslDisplay = $dropdown.find('.hsl-display');
+
+        const r = Math.round(color.r * brightness);
+        const g = Math.round(color.g * brightness);
+        const b = Math.round(color.b * brightness);
+        const parsedOpacity = parseFloat(opacity); // Sicherstellen, dass Opacity ein Float ist
+
+        console.log('Received values - R:', r, 'G:', g, 'B:', b, 'Brightness:', brightness, 'Opacity:', parsedOpacity);
+
+        // HEX-Wert berechnen
+        const hex = `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+
+        // Generiere immer RGBA (auch wenn Opacity 1 ist)
+        const rgba = `rgba(${r}, ${g}, ${b}, ${parsedOpacity})`;
+
+        // HSL(A)-Wert berechnen
+        const hsl = rgbToHsl(r, g, b, parsedOpacity, true);
+
+
+        // Farbwerte in den Displays anzeigen
+        $hexDisplay.text(`HEX: ${hex}`);
+        $rgbDisplay.text(`RGB(A): ${rgba}`);
+        $hslDisplay.text(`HSL(A): ${hsl}`);
+
+        $preview.css('background-color', rgba);
+
+        // In den Daten des Elements speichern
+        const colorFormats = {
+            hex: hex,
+            rgb: rgba,
+            hsl: hsl
+        };
+
+        $element.data('selected', colorFormats);
+        setMarker($element);
+
+        if (setColorToElement) {
+            updateButtonColor($element, rgba);
+            switch (settings.format.toLowerCase()) {
+                case 'hex':
+                    $element.val(hex);
+                    break;
+                case 'rgba':
+                case 'rgb':
+                    $element.val(rgba);
+                    break;
+                case 'hsl':
+                case 'hsla':
+                    $element.val(hsl);
+                    break;
+            }
+        }
+
+
+        // Debugging: Ausgaben überprüfen
+        console.log('Saved colorFormats:', colorFormats);
+    }
+
+    function createFilledColorWheel() {
+        const size = 300;
+        const radius = size / 2;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const context = canvas.getContext('2d');
+
+        for (let y = 0; y < size; y++) {
+            for (let x = 0; x < size; x++) {
+                const dx = x - radius;
+                const dy = y - radius;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance <= radius) {
+                    const angle = Math.atan2(dy, dx);
+                    const hue = ((angle * 180) / Math.PI + 360) % 360;
+                    const saturation = distance / radius;
+
+                    context.fillStyle = `hsl(${hue}, ${saturation * 100}%, 50%)`;
+                    context.fillRect(x, y, 1, 1);
+                }
+            }
+        }
+
+        return canvas;
+    }
 
     function rgbToHsl(r, g, b, a = 1, returnAsString = false) {
         r /= 255;
@@ -519,7 +627,7 @@
         }
 
         // Rückgabe als Objekt inkl. Alpha
-        return { h, s, l, a };
+        return {h, s, l, a};
     }
 
 }(jQuery))
