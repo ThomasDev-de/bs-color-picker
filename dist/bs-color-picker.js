@@ -34,6 +34,7 @@
         const methodGiven = typeof optionsOrMethod === 'string';
 
         const $element = $(this);
+
         if (!$element.data('initBsColorPicker')) {
             let settings = $.bsColorPicker.getDefaults();
 
@@ -42,6 +43,7 @@
             }
 
             setSettings($element, settings);
+
             init($element).then(() => {
                 $element.data('initBsColorPicker', true);
                 if (settings.debug) {
@@ -236,7 +238,7 @@
         const g = (bigint >> 8) & 255;
         const b = bigint & 255;
 
-        console.log('Konvertierte HEX zu RGB:', {r, g, b}); // Debug-Ausgabe
+        console.log('Konvertierte HEX zu RGB:',hex,  {r, g, b}); // Debug-Ausgabe
         return {r, g, b};
     }
 
@@ -264,9 +266,17 @@
             log('Start init element with settings:', settings);
         }
         return new Promise((resolve, reject) => {
+            // Den Wert explizit setzen
+            $element.val($element.attr('value'));
             $element.hide();
             buildDropdown($element);
             events($element);
+            if($element.val()) {
+                setTimeout(() => {
+                    setValue($element, $element.val());
+                }, 0);
+
+            }
             resolve();
         })
     }
@@ -386,7 +396,7 @@
             clip-path: circle(150px at 150px 150px);
             overflow: hidden;
         `,
-        });
+        }).appendTo(dropdownMenu);
 
         // Canvas für das Farbrad mit Marker erstellen
         const canvas = createFilledColorWheel();
@@ -396,9 +406,10 @@
                 top: 0,
                 left: 0,
             })
+            .appendTo($colorContainer)
             .addClass(canvasClass);
 
-        $colorContainer.append($canvas);
+        // $colorContainer.append($canvas);
 
         // Marker für die Farbauswahl
         const $marker = $('<div>', {
@@ -413,39 +424,46 @@
             transform: translate(-50%, -50%);
             display: none;
         `,
-        });
-        $colorContainer.append($marker);
+        }).appendTo($colorContainer);
+        // $colorContainer.append($marker);
 
+        const $previewContainer = $('<div>', {
+            class:'d-flex'
+        }).appendTo(dropdownMenu);
         // Vorschaufeld
         const $preview = $('<div>', {
             class: previewClass,
             style: `
-            width: 100%;
-            height: 30px;
+            width: 60px;
+            // height: 30px;
             margin-top: 10px;
             border: 1px solid #ddd;
             background: ${settings.emptyColor};
         `,
-        });
+        }).appendTo($previewContainer);
+
+        const valuesPreview = $('<div>', {
+            class:'ms-3 ml-3'
+        }).appendTo($previewContainer);
 
         // Farbwert-Anzeigen
         const $hexDisplay = $('<div>', {
             class: 'hex-display mt-2',
             style: 'font-size: 12px;',
             text: `HEX: ${settings.emptyColor}`,
-        });
+        }).appendTo(valuesPreview);
 
         const $rgbDisplay = $('<div>', {
             class: 'rgb-display',
             style: 'font-size: 12px;',
             text: `RGB: rgb(255, 255, 255)`,
-        });
+        }).appendTo(valuesPreview);
 
         const $hslDisplay = $('<div>', {
             class: 'hsl-display',
             style: 'font-size: 12px;',
             text: `HSL: hsl(0, 0%, 100%)`,
-        });
+        }).appendTo(valuesPreview);
 
         // Slider
         const $brightnessSlider = $('<input>', {
@@ -468,26 +486,27 @@
 
         const $sliderContainer = $('<div>', {
             style: 'text-align: center; margin-top: 10px;',
-        }).append($brightnessSlider, $opacitySlider);
+        }).appendTo(dropdownMenu);
 
-        // Alle Elemente dem Dropdown-Menü hinzufügen
-        dropdownMenu.append(
-            $colorContainer,
-            $preview,
-            $hexDisplay,
-            $rgbDisplay,
-            $hslDisplay,
-            $sliderContainer
-        );
+        $opacitySlider.appendTo($sliderContainer);
+        $brightnessSlider.appendTo($sliderContainer);
 
         // Übernehmen-Button
         const $submitButton = $('<button>', {
             text: 'Übernehmen',
             class: 'btn btn-primary mt-3 ' + submitBtnClass,
-        });
-        dropdownMenu.append($submitButton);
+        }).appendTo(dropdownMenu);
     }
 
+    /**
+     * Updates the color of a button element associated with a given dropdown element.
+     * It modifies the button's background color using the provided RGBA value
+     * and removes any existing button-related classes that start with 'btn-'.
+     *
+     * @param {jQuery} $element - The jQuery object representing the dropdown element.
+     * @param {string} rgba - The RGBA color value to set as the background color of the button.
+     * @return {void} No return value.
+     */
     function updateButtonColor($element, rgba) {
         const $dropdownButton = getDropdownButton($element);
         const classes = $dropdownButton.attr('class').split(/\s+/);
@@ -496,6 +515,18 @@
         $dropdownButton.css('backgroundColor', rgba);
     }
 
+
+    /**
+     * Updates the preview section and internal values for a color picker element,
+     * including HEX, RGB(A), and HSL(A) formats, applying brightness and opacity adjustments.
+     *
+     * @param {jQuery} $element - The jQuery element representing the color picker to update.
+     * @param {Object} color - An object representing the base color with `r`, `g`, and `b` values.
+     * @param {number} brightness - The brightness factor to apply to the base color (range 0 to 1).
+     * @param {number} opacity - The opacity level to apply (range 0 to 1).
+     * @param {boolean} [setColorToElement=false] - Whether to update the element's value with the formatted color.
+     * @return {void}
+     */
     function updatePreviewAndValues($element, color, brightness, opacity, setColorToElement = false) {
         const settings = getSettings($element);
         const $dropdown = getDropdown($element);
@@ -560,6 +591,17 @@
         console.log('Saved colorFormats:', colorFormats);
     }
 
+    /**
+     * Creates a filled color wheel rendered on a canvas element.
+     * The color wheel utilizes HSL color space, where hue is
+     * determined by the angle, and saturation is based on the distance
+     * from the center. Each pixel within the circle is assigned a color.
+     *
+     * The radius of the circle is half the width/height of the canvas, and
+     * the circle is centered in the canvas.
+     *
+     * @return {HTMLCanvasElement} A canvas element containing the generated filled color wheel.
+     */
     function createFilledColorWheel() {
         const size = 300;
         const radius = size / 2;
@@ -579,7 +621,31 @@
                     const hue = ((angle * 180) / Math.PI + 360) % 360;
                     const saturation = distance / radius;
 
-                    context.fillStyle = `hsl(${hue}, ${saturation * 100}%, 50%)`;
+                    // HSL zu RGB Konvertierung
+                    const c = (1 - Math.abs(2 * 0.5 - 1)) * saturation;
+                    const x_rgb = c * (1 - Math.abs((hue / 60) % 2 - 1));
+                    const m = 0.5 - c / 2;
+                    let r, g, b;
+
+                    if (0 <= hue && hue < 60) {
+                        [r, g, b] = [c, x_rgb, 0];
+                    } else if (60 <= hue && hue < 120) {
+                        [r, g, b] = [x_rgb, c, 0];
+                    } else if (120 <= hue && hue < 180) {
+                        [r, g, b] = [0, c, x_rgb];
+                    } else if (180 <= hue && hue < 240) {
+                        [r, g, b] = [0, x_rgb, c];
+                    } else if (240 <= hue && hue < 300) {
+                        [r, g, b] = [x_rgb, 0, c];
+                    } else {
+                        [r, g, b] = [c, 0, x_rgb];
+                    }
+
+                    r = Math.round((r + m) * 255);
+                    g = Math.round((g + m) * 255);
+                    b = Math.round((b + m) * 255);
+
+                    context.fillStyle = `rgb(${r}, ${g}, ${b})`;
                     context.fillRect(x, y, 1, 1);
                 }
             }
@@ -588,6 +654,16 @@
         return canvas;
     }
 
+    /**
+     * Converts RGB color values to HSL color values.
+     *
+     * @param {number} r The red component of the color (integer between 0 and 255).
+     * @param {number} g The green component of the color (integer between 0 and 255).
+     * @param {number} b The blue component of the color (integer between 0 and 255).
+     * @param {number} [a=1] The alpha (opacity) value of the color (number between 0 and 1).
+     * @param {boolean} [returnAsString=false] Indicates whether the result should be returned as a string (true) or an object (false).
+     * @return {(string|Object)} The HSL(A) color representation. If `returnAsString` is true, returns a string in the format `hsl(...)` or `hsla(...)`. Otherwise, returns an object with properties `{h, s, l, a}`.
+     */
     function rgbToHsl(r, g, b, a = 1, returnAsString = false) {
         r /= 255;
         g /= 255;
