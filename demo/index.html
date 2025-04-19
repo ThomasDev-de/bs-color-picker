@@ -8,7 +8,7 @@
 </head>
 
 <body class="container py-5">
-
+<div id="colorPicker"></div>
 <script src="../vendor/components/jquery/jquery.min.js"></script>
 <script src="../vendor/twbs/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 <script src="../dist/bs-color-picker.js"></script>
@@ -108,7 +108,6 @@
                     currentOpacity = 1 - (relativeY / (size - 1));
                     updateColor();
                 }
-
 
 
                 /**
@@ -410,7 +409,7 @@
                                             }
                                         } else {
                                             // RGB/RGBA Format
-                                            rgb = { r: values[0], g: values[1], b: values[2] };
+                                            rgb = {r: values[0], g: values[1], b: values[2]};
                                             if (values.length > 3) {
                                                 alpha = values[3];
                                             }
@@ -463,17 +462,18 @@
             container.appendChild(colorWheel);
 
             const inputsContainer = document.createElement('div');
-            inputsContainer.style.display = 'flex';
+            inputsContainer.classList.add('d-flex');
+            inputsContainer.classList.add('justify-content-between');
+            inputsContainer.classList.add('flex-wrap');
+            inputsContainer.classList.add('mt-2');
             inputsContainer.style.gap = '10px';
-            inputsContainer.style.flexWrap = 'wrap';
-            inputsContainer.style.marginTop = '10px';
 
             const inputs = {
                 hex: createInputGroup('HEX', '#ff0000'),
-                rgb: createInputGroup('RGB', '255, 0, 0'),
+                rgb: createInputGroup('RGBA', '255, 0, 0'),
                 cmyk: createInputGroup('CMYK', '0, 100, 100, 0'),
                 hsv: createInputGroup('HSV', '0, 100, 100'),
-                hsl: createInputGroup('HSL', '0, 100, 50')
+                hsl: createInputGroup('HSLA', '0, 100, 50')
             };
 
             Object.values(inputs).forEach(group => inputsContainer.appendChild(group.container));
@@ -492,19 +492,24 @@
              */
             function createInputGroup(label, placeholder) {
                 const container = document.createElement('div');
-                container.style.display = 'flex';
-                container.style.flexDirection = 'column';
+                container.classList.add('d-flex');
+                container.classList.add('flex-column');
+                container.classList.add('flex-fill');
                 container.style.gap = '5px';
 
                 const labelElement = document.createElement('label');
                 labelElement.textContent = label;
+                labelElement.style.fontSize = '12px';
                 labelElement.style.fontWeight = 'bold';
+                labelElement.classList.add('form-label');
+                labelElement.classList.add('mb-0');
 
                 const input = document.createElement('input');
                 input.type = 'text';
                 input.placeholder = placeholder;
                 input.style.width = '150px';
-                input.style.padding = '5px';
+                input.classList.add('form-control');
+                input.classList.add('form-control-sm');
 
                 container.appendChild(labelElement);
                 container.appendChild(input);
@@ -877,16 +882,15 @@
 
             return container;
         }
-        const picker = createColorPicker('rgba(255,255,0,.5)');
+
+        const picker = createColorPicker('rgba(255,255,0)');
         const wrapper = document.createElement('div');
         wrapper.style.width = '400px';  // Fixe Breite
         wrapper.style.height = 'auto';  // Höhe automatisch anpassen
         wrapper.style.position = 'relative';
         wrapper.appendChild(picker);
         document.body.appendChild(wrapper);
-
     });
-
 
 </script>
 </body>
