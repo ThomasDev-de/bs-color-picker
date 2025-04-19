@@ -20,13 +20,23 @@
             container.style.flexDirection = 'column';
             container.style.gap = '10px';
             container.style.padding = '10px';
+            let currentOpacity = 1; // Hier stattdessen definieren
 
+            /**
+             * Generates and returns a canvas element with a fully interactive color wheel interface.
+             * The color wheel includes a main color square for saturation and value adjustments,
+             * a hue slider for selecting hues, and a preview section for the currently selected color.
+             *
+             * @return {HTMLCanvasElement} A canvas element containing the color selection interface.
+             */
             function createFilledColorWheel() {
                 const size = 200;          // Größe des Farbfelds bleibt gleich
                 const sliderWidth = 14;    // Breite des Hue-Sliders bleibt gleich
                 const padding = 10;        // Padding bleibt gleich
                 const previewSize = 50;    // GEÄNDERT: von 200 auf 50 reduziert
-                const totalWidth = previewSize + padding + size + sliderWidth + padding;
+                // Hier erweitern wir die totalWidth um einen weiteren Slider + Padding
+                const totalWidth = previewSize + padding + size + padding + sliderWidth + padding + sliderWidth;
+
 
                 const canvas = document.createElement('canvas');
                 canvas.width = totalWidth;
@@ -38,6 +48,12 @@
                 let currentValue = 1;
                 let activeControl = null;
 
+                /**
+                 * Calculates the mouse position relative to the canvas element, scaled based on the canvas dimensions and its bounding rectangle.
+                 *
+                 * @param {MouseEvent} e The mouse event object containing the clientX and clientY properties.
+                 * @return {Object} An object containing the x and y coordinates of the mouse position relative to the canvas, scaled appropriately.
+                 */
                 function getMousePosition(e) {
                     const rect = canvas.getBoundingClientRect();
                     // Skalierungsfaktor berechnen
@@ -55,27 +71,56 @@
                     return {x, y};
                 }
 
+                /**
+                 * Handles the click event on the hue slider, calculating and updating the current hue based on the click position.
+                 *
+                 * @param {Object} pos - The position object containing the coordinates of the click.
+                 * @param {number} pos.y - The vertical position of the click on the hue slider.
+                 * @return {void} This method does not return any value.
+                 */
                 function handleHueClick(pos) {
                     const relativeY = Math.max(0, Math.min(size - 1, pos.y));
                     currentHue = (relativeY / (size - 1)) * 360;
                     updateColor();
                 }
 
+                /**
+                 * Determines the area that has been clicked based on the provided x-coordinate.
+                 *
+                 * @param {number} x - The x-coordinate of the click relative to the canvas.
+                 * @return {string} Returns 'color' if the click is in the color field, 'hue' if the click is in the hue-slider area, and 'none' if the click is outside these areas.
+                 */
                 function getClickedArea(x) {
-                    // Da wir jetzt relativ zur Canvas sind:
-                    // Vorschau ist von 0 bis previewSize
-                    // Farbfeld beginnt bei previewSize + padding
-                    // Hue-Slider beginnt nach dem Farbfeld
                     if (x >= previewSize + padding && x < previewSize + padding + size) {
                         return 'color';
                     }
                     if (x >= previewSize + padding + size + padding && x < previewSize + padding + size + padding + sliderWidth) {
                         return 'hue';
                     }
+                    if (x >= previewSize + padding + size + padding + sliderWidth + padding && x < totalWidth) {
+                        return 'opacity';
+                    }
                     return 'none';
                 }
 
+                function handleOpacityClick(pos) {
+                    const relativeY = Math.max(0, Math.min(size - 1, pos.y));
+                    currentOpacity = 1 - (relativeY / (size - 1));
+                    updateColor();
+                }
 
+
+
+                /**
+                 * Draws a circular marker on a canvas at the specified coordinates.
+                 * The function ensures the marker's position is within the bounds,
+                 * and its appearance changes slightly if it is on a hue slider.
+                 *
+                 * @param {number} x - The x-coordinate of the marker position.
+                 * @param {number} y - The y-coordinate of the marker position.
+                 * @param {boolean} [isHueSlider=false] - Indicates whether the marker is being drawn on a hue slider.
+                 * @return {void} Does not return a value.
+                 */
                 function drawMarker(x, y, isHueSlider = false) {
                     x = Math.max(previewSize + padding + (isHueSlider ? size + padding + sliderWidth / 2 : 6),
                         Math.min(x, previewSize + padding + (isHueSlider ? totalWidth - 6 : size - 6)));
@@ -93,6 +138,12 @@
                     context.stroke();
                 }
 
+                /**
+                 * Draws a preview with a transparency checkerboard background, a colored overlay, and a border.
+                 *
+                 * @param {string} color - The color to fill the preview area with.
+                 * @return {void} This function does not return a value.
+                 */
                 function drawPreview(color) {
                     // Schachbrettmuster für Transparenz
                     for (let x = 0; x < previewSize; x += 10) {
@@ -110,6 +161,12 @@
                     context.strokeRect(0, 0, previewSize, previewSize);
                 }
 
+                /**
+                 * Renders the main square of a color visualization based on a given hue and size.
+                 *
+                 * @param {number} baseHue - The base hue of the square in HSV color space (range: 0-360).
+                 * @return {void} Does not return any value. The function updates the canvas with the rendered square.
+                 */
                 function drawMainSquare(baseHue) {
                     const imageData = context.createImageData(size, size);
                     for (let y = 0; y < size; y++) {
@@ -127,6 +184,12 @@
                     context.putImageData(imageData, previewSize + padding, 0);
                 }
 
+                /**
+                 * Draws a vertical hue slider onto the canvas by creating an image data object and populating it with hue-based RGB colors.
+                 * The slider displays a gradient transitioning through all hues from top to bottom.
+                 *
+                 * @return {void} Does not return a value. Executes drawing operations directly on the canvas context.
+                 */
                 function drawHueSlider() {
                     const imageData = context.createImageData(sliderWidth, size);
                     for (let y = 0; y < size; y++) {
@@ -143,29 +206,46 @@
                     context.putImageData(imageData, previewSize + padding + size + padding, 0);
                 }
 
-                function handleColorAreaClick(pos) {
-                    // HIER: Debug-Ausgabe hinzufügen
-                    console.log('Color click raw position:', pos);
+                function drawOpacitySlider() {
+                    const imageData = context.createImageData(sliderWidth, size);
+                    const rgb = HSVtoRGB(currentHue, currentSaturation, currentValue);
 
-                    const colorAreaX = pos.x - (previewSize + padding);
-                    const relativeY = pos.y;
+                    for (let y = 0; y < size; y++) {
+                        const alpha = 1 - (y / (size - 1));
+                        for (let x = 0; x < sliderWidth; x++) {
+                            const idx = (y * sliderWidth + x) * 4;
+                            // Schachbrettmuster für Transparenz mit 5x5 Pixel Kacheln
+                            const isCheckerboard = ((Math.floor(y / 5) + Math.floor(x / 5)) % 2 === 0);
+                            const baseColor = isCheckerboard ? 255 : 220;
 
-                    // HIER: Debug-Ausgabe der berechneten Position
-                    console.log('Color click calculated position:', {
-                        colorAreaX,
-                        relativeY,
-                        previewSize,
-                        padding
-                    });
+                            imageData.data[idx] = baseColor;
+                            imageData.data[idx + 1] = baseColor;
+                            imageData.data[idx + 2] = baseColor;
+                            imageData.data[idx + 3] = 255;
+                        }
+                    }
+                    context.putImageData(imageData, previewSize + padding + size + padding + sliderWidth + padding, 0);
 
-                    const s = Math.max(0, Math.min(1, colorAreaX / size));
-                    const v = Math.max(0, Math.min(1, 1 - (relativeY / size)));
-
-                    currentSaturation = s;
-                    currentValue = v;
-                    updateColor();
+                    // Zeichne den Farbverlauf darüber
+                    context.save();
+                    context.globalCompositeOperation = 'source-over';
+                    const gradient = context.createLinearGradient(0, 0, 0, size);
+                    gradient.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},1)`);
+                    gradient.addColorStop(1, `rgba(${rgb.r},${rgb.g},${rgb.b},0)`);
+                    context.fillStyle = gradient;
+                    context.fillRect(previewSize + padding + size + padding + sliderWidth + padding, 0, sliderWidth, size);
+                    context.restore();
                 }
 
+                /**
+                 * Handles a click event on the color area, calculates the corresponding saturation and value,
+                 * and updates the current color settings based on the click position.
+                 *
+                 * @param {Object} pos An object representing the click position.
+                 * @param {number} pos.x The x-coordinate of the click position.
+                 * @param {number} pos.y The y-coordinate of the click position.
+                 * @return {void} Does not return a value; only updates internal state and logs debug information.
+                 */
                 function handleColorAreaClick(pos) {
                     // HIER: Debug-Ausgabe hinzufügen
                     console.log('Color click raw position:', pos);
@@ -193,12 +273,14 @@
                     context.clearRect(0, 0, totalWidth, size);
 
                     const rgb = HSVtoRGB(currentHue, currentSaturation, currentValue);
-                    const hexColor = RGBtoHex(rgb.r, rgb.g, rgb.b);
+                    const rgbaColor = `rgba(${rgb.r},${rgb.g},${rgb.b},${currentOpacity})`;
 
-                    drawPreview(hexColor);
+                    drawPreview(rgbaColor);
                     drawMainSquare(currentHue);
                     drawHueSlider();
+                    drawOpacitySlider();
 
+                    // Zeichne die Marker
                     const mainX = previewSize + padding + (currentSaturation * size);
                     const mainY = (1 - currentValue) * size;
                     drawMarker(mainX, mainY);
@@ -206,10 +288,14 @@
                     const hueY = (currentHue / 360) * size;
                     drawMarker(previewSize + padding + size + padding + sliderWidth / 2, hueY, true);
 
+                    const opacityY = (1 - currentOpacity) * size;
+                    drawMarker(previewSize + padding + size + padding + sliderWidth + padding + sliderWidth / 2, opacityY, true);
+
                     canvas.dispatchEvent(new CustomEvent('colorchange', {
                         detail: {
-                            hex: hexColor,
+                            hex: RGBtoHex(rgb.r, rgb.g, rgb.b),
                             rgb: rgb,
+                            opacity: currentOpacity,
                             hsv: {h: currentHue, s: currentSaturation, v: currentValue}
                         }
                     }));
@@ -219,12 +305,6 @@
                 canvas.addEventListener('mousedown', function (e) {
                     const pos = getMousePosition(e);
                     const area = getClickedArea(pos.x);
-                    console.log('Relative click position:', pos);
-                    console.log('Clicked area:', area);
-                    console.log('Canvas dimensions:', {
-                        width: canvas.width,
-                        height: canvas.height
-                    });
 
                     if (area === 'color') {
                         activeControl = 'color';
@@ -232,6 +312,9 @@
                     } else if (area === 'hue') {
                         activeControl = 'hue';
                         handleHueClick(pos);
+                    } else if (area === 'opacity') {
+                        activeControl = 'opacity';
+                        handleOpacityClick(pos);
                     }
                 });
 
@@ -243,6 +326,8 @@
                         handleColorAreaClick(pos);
                     } else if (activeControl === 'hue') {
                         handleHueClick(pos);
+                    } else if (activeControl === 'opacity') {
+                        handleOpacityClick(pos);
                     }
                 });
 
@@ -263,6 +348,16 @@
 
             const colorWheel = createFilledColorWheel();
 
+            /**
+             * Sets the color based on the provided initial color value.
+             * The method accepts different formats such as hex, RGB, RGBA, HSV, or named colors.
+             * Updates the color wheel and related elements accordingly.
+             *
+             * @param {string} initialColor - The color value to set. It can be in hex format (#RRGGBB),
+             *                                RGB(A) format (e.g., `rgb(255,0,0)` or `rgba(255,0,0,0.5)`),
+             *                                HSV format, or as a named color (e.g., 'red', 'blue').
+             * @return {void} No value is returned but updates the color representation in the application.
+             */
             function setColor(initialColor) {
                 try {
                     let rgb;
@@ -271,7 +366,14 @@
 
                     if (typeof initialColor === 'string') {
                         if (initialColor.startsWith('#')) {
-                            rgb = hexToRGB(initialColor);
+                            // HEX Format - prüfen ob 8-stellig (mit Alpha)
+                            if (initialColor.length === 9) {  // #RRGGBBAA
+                                const alphaHex = initialColor.slice(7);
+                                alpha = parseInt(alphaHex, 16) / 255;
+                                rgb = hexToRGB(initialColor.slice(0, 7));
+                            } else {
+                                rgb = hexToRGB(initialColor);
+                            }
                         } else if (initialColor.includes(',')) {
                             // Prüfe auf rgba Format
                             const rgbaMatch = initialColor.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,?\s*([0-9.]+)?\s*\)/);
@@ -283,20 +385,35 @@
                                 };
                                 alpha = rgbaMatch[4] ? parseFloat(rgbaMatch[4]) : 1;
                             } else {
-                                const values = initialColor.split(',').map(v => parseFloat(v.trim()));
-                                if (values.length >= 3) {
-                                    if (values[0] <= 360 && values[1] <= 100 && values[2] <= 100) {
-                                        // HSV Format
-                                        hsv = {
-                                            h: values[0],
-                                            s: values[1] / 100,
-                                            v: values[2] / 100
-                                        };
-                                    } else {
-                                        // RGB/RGBA Format
-                                        rgb = { r: values[0], g: values[1], b: values[2] };
-                                        if (values.length > 3) {
-                                            alpha = values[3];
+                                // Prüfe auf hsla Format
+                                const hslaMatch = initialColor.match(/hsla?\(\s*(\d+)\s*,\s*(\d+)%\s*,\s*(\d+)%\s*,?\s*([0-9.]+)?\s*\)/);
+                                if (hslaMatch) {
+                                    hsv = {
+                                        h: parseFloat(hslaMatch[1]),
+                                        s: parseFloat(hslaMatch[2]) / 100,
+                                        v: parseFloat(hslaMatch[3]) / 100
+                                    };
+                                    alpha = hslaMatch[4] ? parseFloat(hslaMatch[4]) : 1;
+                                } else {
+                                    const values = initialColor.split(',').map(v => parseFloat(v.trim()));
+                                    if (values.length >= 3) {
+                                        if (values[0] <= 360 && values[1] <= 100 && values[2] <= 100) {
+                                            // HSV Format
+                                            hsv = {
+                                                h: values[0],
+                                                s: values[1] / 100,
+                                                v: values[2] / 100
+                                            };
+                                            // Wenn ein vierter Wert existiert, ist es Alpha
+                                            if (values.length > 3) {
+                                                alpha = values[3];
+                                            }
+                                        } else {
+                                            // RGB/RGBA Format
+                                            rgb = { r: values[0], g: values[1], b: values[2] };
+                                            if (values.length > 3) {
+                                                alpha = values[3];
+                                            }
                                         }
                                     }
                                 }
@@ -309,13 +426,17 @@
                             const computedColor = window.getComputedStyle(temp).color;
                             document.body.removeChild(temp);
 
-                            const match = computedColor.match(/\d+/g);
+                            // Prüfe auch hier auf rgba Format im computed Style
+                            const match = computedColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([0-9.]+))?\)/);
                             if (match) {
                                 rgb = {
-                                    r: parseInt(match[0]),
-                                    g: parseInt(match[1]),
-                                    b: parseInt(match[2])
+                                    r: parseInt(match[1]),
+                                    g: parseInt(match[2]),
+                                    b: parseInt(match[3])
                                 };
+                                if (match[4]) {
+                                    alpha = parseFloat(match[4]);
+                                }
                             }
                         }
 
@@ -326,16 +447,18 @@
                     }
 
                     if (hsv) {
+                        // Setze den Alpha-Wert
+                        currentOpacity = alpha;
                         colorWheel.updateFromHSV(hsv.h, hsv.s, hsv.v);
                         // Wichtig: Aktualisiere auch die Eingabefelder
                         updateAllFormats(rgb || HSVtoRGB(hsv.h, hsv.s, hsv.v));
+                        // Zeichne den Opacity-Slider neu mit dem neuen Wert
+                        drawOpacitySlider(); // Falls diese Funktion existiert
                     }
                 } catch (e) {
                     console.error('Ungültiges Farbformat:', e);
                 }
             }
-
-
 
             container.appendChild(colorWheel);
 
@@ -356,11 +479,17 @@
             Object.values(inputs).forEach(group => inputsContainer.appendChild(group.container));
             container.appendChild(inputsContainer);
 
-
             if (initialColor) {
                 setColor(initialColor);
             }
 
+            /**
+             * Creates an input group with a label and an input field, styled and encapsulated in a container element.
+             *
+             * @param {string} label - The text to display in the label associated with the input field.
+             * @param {string} placeholder - The placeholder text to display in the input field.
+             * @return {{container: HTMLElement, input: HTMLInputElement}} - An object containing the container element and the input element.
+             */
             function createInputGroup(label, placeholder) {
                 const container = document.createElement('div');
                 container.style.display = 'flex';
@@ -384,6 +513,14 @@
             }
 
             // Farbkonvertierungsfunktionen
+            /**
+             * Converts a color in HSV (Hue, Saturation, Value) format to its RGB (Red, Green, Blue) representation.
+             *
+             * @param {number} h The hue component of the color, in degrees (0-360).
+             * @param {number} s The saturation component of the color, as a decimal fraction (0-1).
+             * @param {number} v The value component of the color, as a decimal fraction (0-1).
+             * @return {Object} An object representing the color in RGB format, with `r`, `g`, and `b` properties (each in the range 0-255).
+             */
             function HSVtoRGB(h, s, v) {
                 let r, g, b;
                 const i = Math.floor(h / 60);
@@ -432,6 +569,15 @@
                 };
             }
 
+            /**
+             * Converts RGB color values to HSV color values.
+             *
+             * @param {number} r The red component of the color, ranging from 0 to 255.
+             * @param {number} g The green component of the color, ranging from 0 to 255.
+             * @param {number} b The blue component of the color, ranging from 0 to 255.
+             * @return {Object} An object with properties `h`, `s`, and `v` representing the hue (0-360 degrees),
+             * saturation (0-1), and value (0-1) of the color in HSV format.
+             */
             function RGBtoHSV(r, g, b) {
                 r /= 255;
                 g /= 255;
@@ -462,6 +608,14 @@
                 return {h, s, v};
             }
 
+            /**
+             * Converts RGB color values to a HEX color string.
+             *
+             * @param {number} r - The red component of the color, ranging from 0 to 255.
+             * @param {number} g - The green component of the color, ranging from 0 to 255.
+             * @param {number} b - The blue component of the color, ranging from 0 to 255.
+             * @return {string} The HEX color string in the format "#RRGGBB".
+             */
             function RGBtoHex(r, g, b) {
                 const toHex = (n) => {
                     const hex = Math.round(n).toString(16);
@@ -470,6 +624,13 @@
                 return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
             }
 
+            /**
+             * Converts a hexadecimal color value to an RGB object.
+             *
+             * @param {string} hex - A hexadecimal color string. It can be in the format #RRGGBB or #RGB.
+             * @return {{r: number, g: number, b: number}} An object representing the red, green, and blue components of the color.
+             * @throws {Error} Throws an error if the provided hex string has an invalid format.
+             */
             function hexToRGB(hex) {
                 hex = hex.replace('#', '');
                 if (hex.length === 3) {
@@ -482,6 +643,17 @@
                 return {r, g, b};
             }
 
+            /**
+             * Converts RGB color values to HSL format.
+             *
+             * @param {number} r - The red component of the color, in the range 0 to 255.
+             * @param {number} g - The green component of the color, in the range 0 to 255.
+             * @param {number} b - The blue component of the color, in the range 0 to 255.
+             * @return {Object} An object containing the HSL representation of the color:
+             *                  h (hue, in the range 0 to 360),
+             *                  s (saturation, in the range 0 to 1),
+             *                  and l (lightness, in the range 0 to 1).
+             */
             function RGBtoHSL(r, g, b) {
                 r /= 255;
                 g /= 255;
@@ -514,6 +686,18 @@
                 return {h, s, l};
             }
 
+            /**
+             * Converts RGB color values to CMYK color values.
+             *
+             * @param {number} r - The red component of the color, ranging from 0 to 255.
+             * @param {number} g - The green component of the color, ranging from 0 to 255.
+             * @param {number} b - The blue component of the color, ranging from 0 to 255.
+             * @return {Object} An object containing CMYK values:
+             * - c: Cyan component as a percentage (0-100).
+             * - m: Magenta component as a percentage (0-100).
+             * - y: Yellow component as a percentage (0-100).
+             * - k: Black key component as a percentage (0-100).
+             */
             function RGBtoCMYK(r, g, b) {
                 r /= 255;
                 g /= 255;
@@ -538,9 +722,17 @@
                 });
             });
 
+            /**
+             * Updates the color values based on the input format and value.
+             *
+             * @param {string} sourceFormat - The format of the color input (e.g., 'hex', 'rgb', 'hsv', 'cmyk', 'hsl').
+             * @param {string} value - The color value in the specified format.
+             * @return {void} This function does not return anything.
+             */
             function updateFromInput(sourceFormat, value) {
                 let rgb;
                 let hsv;
+                let opacity = currentOpacity; // Behalte aktuelle Opacity als Standard
 
                 try {
                     switch (sourceFormat) {
@@ -549,9 +741,15 @@
                             hsv = RGBtoHSV(rgb.r, rgb.g, rgb.b);
                             break;
                         case 'rgb':
-                            const [r, g, b] = value.split(',').map(n => parseInt(n.trim()));
-                            rgb = {r, g, b};
-                            hsv = RGBtoHSV(r, g, b);
+                            const rgbValues = value.split(',').map(n => parseFloat(n.trim()));
+                            if (rgbValues.length >= 4) {
+                                // Wenn ein Alpha-Wert vorhanden ist
+                                opacity = rgbValues[3];
+                                rgb = {r: rgbValues[0], g: rgbValues[1], b: rgbValues[2]};
+                            } else {
+                                rgb = {r: rgbValues[0], g: rgbValues[1], b: rgbValues[2]};
+                            }
+                            hsv = RGBtoHSV(rgb.r, rgb.g, rgb.b);
                             break;
                         case 'hsv':
                             const [h, s, v] = value.split(',').map(n => parseFloat(n.trim()));
@@ -565,19 +763,33 @@
                             hsv = RGBtoHSV(rgb.r, rgb.g, rgb.b);
                             break;
                         case 'hsl':
-                            const [hh, ss, l] = value.split(',').map(n => parseFloat(n.trim()));
+                            const [hh, ss, l, a] = value.split(',').map(n => parseFloat(n.trim()));
                             const hsl = {h: hh, s: ss / 100, l: l / 100};
+                            if (!isNaN(a)) {
+                                opacity = a; // Setze opacity wenn ein Alpha-Wert angegeben wurde
+                            }
                             rgb = hslToRGB(hsl);
                             hsv = RGBtoHSV(rgb.r, rgb.g, rgb.b);
                             break;
+
                     }
 
+                    currentOpacity = opacity;
                     colorWheel.updateFromHSV(hsv.h, hsv.s, hsv.v);
                 } catch (e) {
                     console.error('Ungültiges Format:', e);
                 }
             }
 
+            /**
+             * Updates all color format input values (Hex, RGB, HSV, HSL, and CMYK) based on the provided RGB values.
+             *
+             * @param {Object} rgb An object containing the red, green, and blue color components.
+             * @param {number} rgb.r The red component, with a value between 0 and 255.
+             * @param {number} rgb.g The green component, with a value between 0 and 255.
+             * @param {number} rgb.b The blue component, with a value between 0 and 255.
+             * @return {void} Does not return a value. Updates relevant inputs with the converted color values.
+             */
             function updateAllFormats(rgb) {
                 const hex = RGBtoHex(rgb.r, rgb.g, rgb.b);
                 const hsv = RGBtoHSV(rgb.r, rgb.g, rgb.b);
@@ -585,12 +797,25 @@
                 const cmyk = RGBtoCMYK(rgb.r, rgb.g, rgb.b);
 
                 inputs.hex.input.value = hex;
-                inputs.rgb.input.value = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
+                inputs.rgb.input.value = `${rgb.r}, ${rgb.g}, ${rgb.b}, ${currentOpacity.toFixed(2)}`;
                 inputs.hsv.input.value = `${Math.round(hsv.h)}, ${Math.round(hsv.s * 100)}, ${Math.round(hsv.v * 100)}`;
-                inputs.hsl.input.value = `${Math.round(hsl.h)}, ${Math.round(hsl.s * 100)}, ${Math.round(hsl.l * 100)}`;
+                inputs.hsl.input.value = `${Math.round(hsl.h)}, ${Math.round(hsl.s * 100)}, ${Math.round(hsl.l * 100)}, ${currentOpacity.toFixed(2)}`;
                 inputs.cmyk.input.value = `${cmyk.c}, ${cmyk.m}, ${cmyk.y}, ${cmyk.k}`;
             }
 
+            /**
+             * Converts CMYK color values to RGB color values.
+             *
+             * @param {Object} cmyk - An object containing CMYK values.
+             * @param {number} cmyk.c - The cyan value (0-100).
+             * @param {number} cmyk.m - The magenta value (0-100).
+             * @param {number} cmyk.y - The yellow value (0-100).
+             * @param {number} cmyk.k - The key (black) value (0-100).
+             * @return {Object} An object containing the RGB color values.
+             * @return {number} return.r - The red value (0-255).
+             * @return {number} return.g - The green value (0-255).
+             * @return {number} return.b - The blue value (0-255).
+             */
             function cmykToRGB({c, m, y, k}) {
                 c /= 100;
                 m /= 100;
@@ -604,6 +829,18 @@
                 return {r, g, b};
             }
 
+            /**
+             * Converts an HSL color value to its RGB representation.
+             *
+             * @param {Object} hsl - An object representing the HSL color.
+             * @param {number} hsl.h - The hue value (0-360).
+             * @param {number} hsl.s - The saturation value (0-1).
+             * @param {number} hsl.l - The lightness value (0-1).
+             * @return {Object} An object representing the RGB color.
+             * @return {number} return.r - The red value (0-255).
+             * @return {number} return.g - The green value (0-255).
+             * @return {number} return.b - The blue value (0-255).
+             */
             function hslToRGB({h, s, l}) {
                 let r, g, b;
 
@@ -640,16 +877,12 @@
 
             return container;
         }
-        const picker = createColorPicker('#f0f');
+        const picker = createColorPicker('rgba(255,255,0,.5)');
         const wrapper = document.createElement('div');
-        wrapper.style.width = '500px';  // Fixe Breite
+        wrapper.style.width = '400px';  // Fixe Breite
         wrapper.style.height = 'auto';  // Höhe automatisch anpassen
         wrapper.style.position = 'relative';
         wrapper.appendChild(picker);
-        // container.appendChild(wrapper);
-
-// Verwendung:
-
         document.body.appendChild(wrapper);
 
     });
