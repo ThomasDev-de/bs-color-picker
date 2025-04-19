@@ -14,7 +14,7 @@
 <script src="../dist/bs-color-picker.js"></script>
 <script>
     $(function () {
-        function createColorPicker() {
+        function createColorPicker(initialColor) {
             const container = document.createElement('div');
             container.style.display = 'flex';
             container.style.flexDirection = 'column';
@@ -262,6 +262,81 @@
             }
 
             const colorWheel = createFilledColorWheel();
+
+            function setColor(initialColor) {
+                try {
+                    let rgb;
+                    let hsv;
+                    let alpha = 1;
+
+                    if (typeof initialColor === 'string') {
+                        if (initialColor.startsWith('#')) {
+                            rgb = hexToRGB(initialColor);
+                        } else if (initialColor.includes(',')) {
+                            // Prüfe auf rgba Format
+                            const rgbaMatch = initialColor.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,?\s*([0-9.]+)?\s*\)/);
+                            if (rgbaMatch) {
+                                rgb = {
+                                    r: parseInt(rgbaMatch[1]),
+                                    g: parseInt(rgbaMatch[2]),
+                                    b: parseInt(rgbaMatch[3])
+                                };
+                                alpha = rgbaMatch[4] ? parseFloat(rgbaMatch[4]) : 1;
+                            } else {
+                                const values = initialColor.split(',').map(v => parseFloat(v.trim()));
+                                if (values.length >= 3) {
+                                    if (values[0] <= 360 && values[1] <= 100 && values[2] <= 100) {
+                                        // HSV Format
+                                        hsv = {
+                                            h: values[0],
+                                            s: values[1] / 100,
+                                            v: values[2] / 100
+                                        };
+                                    } else {
+                                        // RGB/RGBA Format
+                                        rgb = { r: values[0], g: values[1], b: values[2] };
+                                        if (values.length > 3) {
+                                            alpha = values[3];
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            // Benannte Farbe
+                            const temp = document.createElement('div');
+                            temp.style.color = initialColor;
+                            document.body.appendChild(temp);
+                            const computedColor = window.getComputedStyle(temp).color;
+                            document.body.removeChild(temp);
+
+                            const match = computedColor.match(/\d+/g);
+                            if (match) {
+                                rgb = {
+                                    r: parseInt(match[0]),
+                                    g: parseInt(match[1]),
+                                    b: parseInt(match[2])
+                                };
+                            }
+                        }
+
+                        // Konvertiere RGB zu HSV wenn nötig
+                        if (rgb && !hsv) {
+                            hsv = RGBtoHSV(rgb.r, rgb.g, rgb.b);
+                        }
+                    }
+
+                    if (hsv) {
+                        colorWheel.updateFromHSV(hsv.h, hsv.s, hsv.v);
+                        // Wichtig: Aktualisiere auch die Eingabefelder
+                        updateAllFormats(rgb || HSVtoRGB(hsv.h, hsv.s, hsv.v));
+                    }
+                } catch (e) {
+                    console.error('Ungültiges Farbformat:', e);
+                }
+            }
+
+
+
             container.appendChild(colorWheel);
 
             const inputsContainer = document.createElement('div');
@@ -280,6 +355,11 @@
 
             Object.values(inputs).forEach(group => inputsContainer.appendChild(group.container));
             container.appendChild(inputsContainer);
+
+
+            if (initialColor) {
+                setColor(initialColor);
+            }
 
             function createInputGroup(label, placeholder) {
                 const container = document.createElement('div');
@@ -560,7 +640,7 @@
 
             return container;
         }
-        const picker = createColorPicker();
+        const picker = createColorPicker('#f0f');
         const wrapper = document.createElement('div');
         wrapper.style.width = '500px';  // Fixe Breite
         wrapper.style.height = 'auto';  // Höhe automatisch anpassen
