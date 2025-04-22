@@ -9,18 +9,14 @@
 
 <body class="container py-5">
 <div id="colorPicker"></div>
-<input type="color" data-bs-toggle="color" value="#ff3eff" class="form-control">
+<input type="text" data-bs-toggle="color" value="blue" class="form-control">
 <script src="../vendor/components/jquery/jquery.min.js"></script>
 <script src="../vendor/twbs/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 <script src="../dist/bs-color-picker.js"></script>
 <script>
     $(function () {
-        $('[type="color"]').bsColorPicker();
-        setTimeout(function () {
-            $('[type="color"]').bsColorPicker('val', 'green');
-        },3000)
+        $('[type="text"]').bsColorPicker();
     });
-
 </script>
 </body>
 </html>

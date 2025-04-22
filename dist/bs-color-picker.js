@@ -223,8 +223,7 @@
                 return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
             }
         }
-    }
-    ;
+    };
 
     const classDropdown = 'bs-color-picker-dropdown';
     const submitBtnClass = 'bs-color-picker-submit';
@@ -274,7 +273,7 @@
             // 308 = 50 + 10 + 200 + 10 + 14 + 10 + 14
 
             init($element).then(() => {
-                $element.data('initBsColorPicker', true);
+
                 if (settings.debug) {
                     log('Init completed');
                 }
@@ -293,9 +292,9 @@
     };
 
     function getValueFromElement($element) {
-        if ($element.attr('type') === 'color') {
-            $element.val($element.attr('value'));
-        }
+        // if ($element.attr('type') === 'color') {
+        //     $element.val($element.attr('value'));
+        // }
         const value = $element.val();
         return isValueEmpty(value) ? null : value;
     }
@@ -416,16 +415,15 @@
             log('Start init element with settings:', settings);
         }
         return new Promise((resolve, reject) => {
-            // Den Wert explizit setzen
-            // $element.val($element.attr('value'));
             $element.hide();
             buildDropdown($element);
             events($element);
             const value = getValueFromElement($element);
-            // $element.val(value);
             if (value) {
+                updateByValue($element, value);
                 updateButtonColor($element, value);
             }
+            $element.data('initBsColorPicker', true);
             resolve();
         })
     }
