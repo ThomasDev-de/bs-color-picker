@@ -362,9 +362,10 @@
         const dropdown = getDropdown($element);
         const colorSet = $element.data('selected');
         const strings = formatSelectedToString(colorSet);
-        updateButtonColor($element, strings.rgb);
-        $element.val(strings.rgb);
-        $element.attr('value',strings.rgb);
+        updateButtonColor($element, strings.rgba);
+        $element.val(strings.rgba);
+        $element.attr('value',strings.rgba);
+        updateColor($element, true);
         dropdown.dropdown('hide');
     }
 
@@ -416,12 +417,12 @@
         }
         return new Promise((resolve, reject) => {
             // Den Wert explizit setzen
-            $element.val($element.attr('value'));
+            // $element.val($element.attr('value'));
             $element.hide();
             buildDropdown($element);
             events($element);
             const value = getValueFromElement($element);
-            $element.val(value);
+            // $element.val(value);
             if (value) {
                 updateButtonColor($element, value);
             }
@@ -447,12 +448,12 @@
                 const canvas = getCanvas($element).get(0);
                 canvas.width = calcTotalWidth($element);
                 canvas.height = vars.size;
-                const value = getValueFromElement($element);
-                console.log('----------------------------------',value);
+                // const value = getValueFromElement($element);
+                // console.log('----------------------------------',value);
                 updateColor($element, false); // Zeichne die Canvas erst jetzt
-                if (value) {
-                    updateByValue($element, value);
-                }
+                // if (value) {
+                //     updateByValue($element, value);
+                // }
             })
             .on('mousedown', '.' + classCanvas, function (e) {
                 log('mousedown on', classCanvas, $element)
