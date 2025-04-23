@@ -761,7 +761,7 @@
             }
 
             init($element).then(() => {
-                if (! $element.data('ignoreEvents')) {
+                if (!$element.data('ignoreEvents')) {
                     trigger($element, 'init');
                 } else {
                     $element.removeData('ignoreEvents');
@@ -971,7 +971,9 @@
     }
 
     function closeDropdown($element) {
-        getDropdown($element).find('.dropdown-toggle.show').dropdown('hide');
+        const dropdown = getDropdown($element);
+        dropdown.removeClass('show').find('.dropdown-menu').removeClass('show');
+        // getDropdown($element).find('.dropdown-toggle.show').dropdown('hide');
     }
 
     /**
@@ -1208,6 +1210,12 @@
                 const $input = $(e.currentTarget);
                 updateFromInput($element, $input); // Update the canvas and UI based on new input
             })
+            .on('hide.bs.dropdown', function (e) {
+                if (dropdown.data('autoClose') === false) {
+                    e.preventDefault();
+                }
+                // return false;
+            })
             .on('show.bs.dropdown', function (e) {
                 $('.' + classDropdown + ' .dropdown-toggle.show').not($(e.currentTarget)).dropdown('toggle');
             })
@@ -1272,6 +1280,8 @@
             .on('mouseup', function () {
                 setVar($element, 'activeControl', null); // Reset active control
             });
+
+
     }
 
     /**
@@ -1294,6 +1304,7 @@
             class: `${classDropdown} dropdown`,
         }).insertAfter($element);
 
+        dropdown.data('autoClose', false);
         // Move the original element into the dropdown
         $element.appendTo(dropdown);
 
@@ -2108,5 +2119,8 @@
         }
     }
 
-    $('[data-bs-toggle="color"],[data-toggle="color"]').bsColorPicker();
+    // setTimeout(() => {
+    //     $('[data-bs-toggle="color"],[data-toggle="color"]').bsColorPicker();
+    //
+    // }, 10)
 }(jQuery))

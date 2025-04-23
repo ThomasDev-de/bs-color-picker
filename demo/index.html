@@ -19,7 +19,7 @@
     </div>
     <div class="form-group mb-3">
         <label>
-            <input type="text" data-bs-toggle="color" name="color2" data-btn-class="btn-warning" class="form-control">
+            <input type="text" name="color2" data-btn-class="btn-warning" class="form-control">
         </label>
     </div>
     <button type="submit" class="btn btn-primary mt-5">Submit</button>
@@ -43,7 +43,8 @@
             debug: false
         });
         setTimeout(function () {
-            // $('[data-bs-toggle="color"]').bsColorPicker('updateOptions', {btnClass: 'btn-lg btn-danger'});
+            // $('[data-bs-toggle="color"]').bsColorPicker('updateOptions', {btnClass: C'btn-lg btn-danger'});
+            $('[name="color2"]').bsColorPicker();
         }, 400)
 
     });
