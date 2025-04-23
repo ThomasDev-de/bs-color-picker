@@ -3,19 +3,49 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Bootstrap demo</title>
+
+    <title>Bootstrap Color Picker</title>
     <link href="../vendor/twbs/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="../vendor/twbs/bootstrap-icons/font/bootstrap-icons.min.css" rel="stylesheet">
 </head>
 
 <body class="container py-5">
 <div id="colorPicker"></div>
-<input type="text" data-bs-toggle="color" value="blue" class="form-control">
+<form>
+    <div class="form-group mb-3">
+        <label>
+            <input type="text" data-bs-toggle="color" name="color" class="form-control">
+        </label>
+    </div>
+    <div class="form-group mb-3">
+        <label>
+            <input type="text" data-bs-toggle="color" name="color2" data-btn-class="btn-warning" class="form-control">
+        </label>
+    </div>
+    <button type="submit" class="btn btn-primary mt-5">Submit</button>
+</form>
 <script src="../vendor/components/jquery/jquery.min.js"></script>
 <script src="../vendor/twbs/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 <script src="../dist/bs-color-picker.js"></script>
+
 <script>
     $(function () {
-        $('[type="text"]').bsColorPicker();
+        $('form').on('submit', function (e) {
+            e.preventDefault();
+            alert(JSON.stringify($(e.currentTarget).serializeArray()));
+        })
+
+        $.bsColorPicker.setDefaults({
+            btnClass: 'btn-lg btn-outline-primary',
+            btnText: 'User color',
+            format: 'rgba',
+            emptyColor: null,
+            debug: false
+        });
+        setTimeout(function () {
+            // $('[data-bs-toggle="color"]').bsColorPicker('updateOptions', {btnClass: 'btn-lg btn-danger'});
+        }, 400)
+
     });
 </script>
 </body>

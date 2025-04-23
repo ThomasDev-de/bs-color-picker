@@ -1,3 +1,34 @@
+/**
+ * Bootstrap Color Picker Plugin
+ * A jQuery plugin that creates a color picker component integrated with Bootstrap's styling and components.
+ *
+ * Features:
+ * - Full color spectrum selection with saturation and value controls
+ * - Hue and opacity sliders
+ * - Multiple color format support (HEX, RGB, RGBA, HSL, HSLA, CMYK)
+ * - Real-time color preview
+ * - Customizable button styling
+ * - Bootstrap 5 compatible
+ * - Support for transparency/opacity
+ *
+ * @requires jQuery 3.x
+ * @requires Bootstrap 5.x
+ * @requires Bootstrap Icons
+ *
+ * @version 1.0.0
+ * @license Proprietary
+ *
+ * @example
+ * // Basic usage
+ * $('#colorPicker').bsColorPicker();
+ *
+ * // With options
+ * $('#colorPicker').bsColorPicker({
+ *     btnClass: 'btn-light',
+ *     btnText: 'Change color',
+ *     format: 'rgba'
+ * });
+ */
 (function ($) {
     "use strict";
 
@@ -10,11 +41,39 @@
         },
         DEFAULTS: {
             btnClass: 'btn-outline-secondary',
-            emptyColor: '#FFFFFF',
+            btnText: null,
+            emptyColor: 'rbga(255,255,255,.5)',
             format: 'rgba',
-            debug: true
+            icons: {
+                check: 'bi bi-check-lg',
+                reset: 'bi bi-arrow-clockwise',
+                close: 'bi bi-x-lg',
+            },
+            debug: false
         },
         utils: {
+            /**
+             * Checks if a value is empty (null, undefined, empty string or empty array)
+             * @param {*} value - The value to check
+             * @returns {boolean} True if the value is empty, false otherwise
+             */
+            isValueEmpty(value) {
+                if (value === null || value === undefined) {
+                    return true; // Null or undefined
+                }
+                if (Array.isArray(value)) {
+                    return value.length === 0; // Empty array
+                }
+                if (typeof value === 'string') {
+                    return value.trim().length === 0; // Empty string (including only spaces)
+                }
+                return false; // All other values are considered non-empty (including numbers)
+            }, /**
+             * Gets the mouse position relative to a canvas element
+             * @param {MouseEvent} e - The mouse event object
+             * @param {HTMLCanvasElement} canvas - The canvas element
+             * @returns {{x: number, y: number}} Object containing x and y coordinates
+             */
             getMousePosition(e, canvas) {
                 const rect = canvas.getBoundingClientRect();
                 // Skalierungsfaktor berechnen
@@ -25,16 +84,20 @@
                 const x = (e.clientX - rect.left) * scaleX;
                 const y = (e.clientY - rect.top) * scaleY;
 
-                log('getMousePosition');
-                log('Canvas Position:', rect);
-                log('Canvas Size:', {width: canvas.width, height: canvas.height});
-                log('Mouse Position:', {x, y});
-                log('Scale factors:', {scaleX, scaleY});
-                log('Canvas Dimensions (physical):', {width: canvas.width, height: canvas.height});
-                log('Canvas Dimensions (rendered):', {width: rect.width, height: rect.height});
+                // log('getMousePosition');
+                // log('Canvas Position:', rect);
+                // log('Canvas Size:', {width: canvas.width, height: canvas.height});
+                // log('Mouse Position:', {x, y});
+                // log('Scale factors:', {scaleX, scaleY});
+                // log('Canvas Dimensions (physical):', {width: canvas.width, height: canvas.height});
+                // log('Canvas Dimensions (rendered):', {width: rect.width, height: rect.height});
 
                 return {x, y};
-            },
+            }, /**
+             * Converts CMYK color values to RGB color space
+             * @param {{c: number, m: number, y: number, k: number}} color - The CMYK color object
+             * @returns {{r: number, g: number, b: number}} The RGB color object
+             */
             cmykToRGB({c, m, y, k}) {
                 c /= 100;
                 m /= 100;
@@ -46,19 +109,41 @@
                 const b = Math.round(255 * (1 - y) * (1 - k));
 
                 return {r, g, b};
-            },
-            hexToRGB(hex) {
+            }, /**
+             * Converts a hexadecimal color string to RGB color space
+             * @param {string} hex - The hexadecimal color string (e.g., "#ff000080")
+             * @returns {{r: number, g: number, b: number, a: number}} | null The RGBA color object
+             */
+            hexToRGBA(hex) {
                 hex = hex.replace('#', '');
-                if (hex.length === 3) {
+
+                // Kurzes HEX-Format (#RGB oder #RGBA) in langes umwandeln (#RRGGBB oder #RRGGBBAA)
+                if (hex.length === 3 || hex.length === 4) {
                     hex = hex.split('').map(h => h + h).join('');
                 }
+
+                // HEX aufteilen
                 const r = parseInt(hex.slice(0, 2), 16);
                 const g = parseInt(hex.slice(2, 4), 16);
                 const b = parseInt(hex.slice(4, 6), 16);
-                if (isNaN(r) || isNaN(g) || isNaN(b)) throw new Error('Ungültiges HEX-Format');
-                return {r, g, b};
-            }
-            ,
+                const a = hex.length === 8 ? parseFloat((parseInt(hex.slice(6, 8), 16) / 255).toFixed(2)) : 1;
+
+
+                // Validierung
+                if (isNaN(r) || isNaN(g) || isNaN(b) || isNaN(a)) {
+                    console.error('Invalid HEX format');
+                    return null;
+                }
+
+                // Rückgabe des RGBA-Werts
+                return {r, g, b, a};
+            }, /**
+             * Converts RGB color values to CMYK color space
+             * @param {number} r - Red component (0-255)
+             * @param {number} g - Green component (0-255)
+             * @param {number} b - Blue component (0-255)
+             * @returns {{c: number, m: number, y: number, k: number}} The CMYK color object
+             */
             RGBtoCMYK(r, g, b) {
                 r /= 255;
                 g /= 255;
@@ -70,13 +155,15 @@
                 const y = (1 - b - k) / (1 - k) || 0;
 
                 return {
-                    c: Math.round(c * 100),
-                    m: Math.round(m * 100),
-                    y: Math.round(y * 100),
-                    k: Math.round(k * 100)
+                    c: Math.round(c * 100), m: Math.round(m * 100), y: Math.round(y * 100), k: Math.round(k * 100)
                 };
-            }
-            ,
+            }, /**
+             * Converts RGB color values to HSL color space
+             * @param {number} r - Red component (0-255)
+             * @param {number} g - Green component (0-255)
+             * @param {number} b - Blue component (0-255)
+             * @returns {{h: number, s: number, l: number}} The HSL color object
+             */
             RGBtoHSL(r, g, b) {
                 r /= 255;
                 g /= 255;
@@ -107,7 +194,11 @@
                 }
 
                 return {h, s, l};
-            },
+            }, /**
+             * Converts HSL color values to RGB color space
+             * @param {{h: number, s: number, l: number}} color - The HSL color object
+             * @returns {{r: number, g: number, b: number}} The RGB color object
+             */
             hslToRGB({h, s, l}) {
                 let r, g, b;
 
@@ -132,11 +223,15 @@
                 }
 
                 return {
-                    r: Math.round(r * 255),
-                    g: Math.round(g * 255),
-                    b: Math.round(b * 255)
+                    r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255)
                 };
-            },
+            }, /**
+             * Converts RGB color values to HSV color space
+             * @param {number} r - Red component (0-255)
+             * @param {number} g - Green component (0-255)
+             * @param {number} b - Blue component (0-255)
+             * @returns {{h: number, s: number, v: number}} The HSV color object
+             */
             RGBtoHSV(r, g, b) {
                 r /= 255;
                 g /= 255;
@@ -165,8 +260,13 @@
                 }
 
                 return {h, s, v};
-            }
-            ,
+            }, /**
+             * Converts HSV color values to RGB color space
+             * @param {number} h - Hue component (0-360)
+             * @param {number} s - Saturation component (0-1)
+             * @param {number} v - Value component (0-1)
+             * @returns {{r: number, g: number, b: number}} The RGB color object
+             */
             HSVtoRGB(h, s, v) {
                 let r, g, b;
                 const i = Math.floor(h / 60);
@@ -209,18 +309,405 @@
                 }
 
                 return {
-                    r: Math.round(r * 255),
-                    g: Math.round(g * 255),
-                    b: Math.round(b * 255)
+                    r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255)
                 };
-            }
-            ,
-            RGBtoHex(r, g, b) {
+            }, /**
+             * Converts RGB color values to hexadecimal color string
+             * @param {number} r - Red component (0-255)
+             * @param {number} g - Green component (0-255)
+             * @param {number} b - Blue component (0-255)
+             * @returns {string} The hexadecimal color string (e.g., "#ff0000")
+             */
+            RGBtoHex(r, g, b, a = 1) {
                 const toHex = (n) => {
                     const hex = Math.round(n).toString(16);
                     return hex.length === 1 ? '0' + hex : hex;
                 };
-                return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+
+                const hexColor = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+
+                // Nur anhängen, wenn alpha kleiner als 1
+                if (a < 1) {
+                    const alphaHex = toHex(Math.round(a * 255)); // Alpha in 2-stellige HEX umrechnen
+                    return hexColor + alphaHex;
+                }
+
+                return hexColor;
+            },
+            getColorNames() {
+                return {
+                    aliceblue: "#f0f8ff",
+                    antiquewhite: "#faebd7",
+                    aqua: "#00ffff",
+                    aquamarine: "#7fffd4",
+                    azure: "#f0ffff",
+                    beige: "#f5f5dc",
+                    bisque: "#ffe4c4",
+                    black: "#000000",
+                    blanchedalmond: "#ffebcd",
+                    blue: "#0000ff",
+                    blueviolet: "#8a2be2",
+                    brown: "#a52a2a",
+                    burlywood: "#deb887",
+                    cadetblue: "#5f9ea0",
+                    chartreuse: "#7fff00",
+                    chocolate: "#d2691e",
+                    coral: "#ff7f50",
+                    cornflowerblue: "#6495ed",
+                    cornsilk: "#fff8dc",
+                    crimson: "#dc143c",
+                    cyan: "#00ffff",
+                    darkblue: "#00008b",
+                    darkcyan: "#008b8b",
+                    darkgoldenrod: "#b8860b",
+                    darkgray: "#a9a9a9",
+                    darkgreen: "#006400",
+                    darkgrey: "#a9a9a9", // British English synonym
+                    darkkhaki: "#bdb76b",
+                    darkmagenta: "#8b008b",
+                    darkolivegreen: "#556b2f",
+                    darkorange: "#ff8c00",
+                    darkorchid: "#9932cc",
+                    darkred: "#8b0000",
+                    darksalmon: "#e9967a",
+                    darkseagreen: "#8fbc8f",
+                    darkslateblue: "#483d8b",
+                    darkslategray: "#2f4f4f",
+                    darkslategrey: "#2f4f4f", // British English synonym
+                    darkturquoise: "#00ced1",
+                    darkviolet: "#9400d3",
+                    deeppink: "#ff1493",
+                    deepskyblue: "#00bfff",
+                    dimgray: "#696969",
+                    dimgrey: "#696969", // British English synonym
+                    dodgerblue: "#1e90ff",
+                    firebrick: "#b22222",
+                    floralwhite: "#fffaf0",
+                    forestgreen: "#228b22",
+                    fuchsia: "#ff00ff",
+                    gainsboro: "#dcdcdc",
+                    ghostwhite: "#f8f8ff",
+                    gold: "#ffd700",
+                    goldenrod: "#daa520",
+                    gray: "#808080",
+                    green: "#008000",
+                    greenyellow: "#adff2f",
+                    grey: "#808080", // British English synonym
+                    honeydew: "#f0fff0",
+                    hotpink: "#ff69b4",
+                    indianred: "#cd5c5c",
+                    indigo: "#4b0082",
+                    ivory: "#fffff0",
+                    khaki: "#f0e68c",
+                    lavender: "#e6e6fa",
+                    lavenderblush: "#fff0f5",
+                    lawngreen: "#7cfc00",
+                    lemonchiffon: "#fffacd",
+                    lightblue: "#add8e6",
+                    lightcoral: "#f08080",
+                    lightcyan: "#e0ffff",
+                    lightgoldenrodyellow: "#fafad2",
+                    lightgray: "#d3d3d3",
+                    lightgreen: "#90ee90",
+                    lightgrey: "#d3d3d3", // British English synonym
+                    lightpink: "#ffb6c1",
+                    lightsalmon: "#ffa07a",
+                    lightseagreen: "#20b2aa",
+                    lightskyblue: "#87cefa",
+                    lightslategray: "#778899",
+                    lightslategrey: "#778899", // British English synonym
+                    lightsteelblue: "#b0c4de",
+                    lightyellow: "#ffffe0",
+                    lime: "#00ff00",
+                    limegreen: "#32cd32",
+                    linen: "#faf0e6",
+                    magenta: "#ff00ff",
+                    maroon: "#800000",
+                    mediumaquamarine: "#66cdaa",
+                    mediumblue: "#0000cd",
+                    mediumorchid: "#ba55d3",
+                    mediumpurple: "#9370db",
+                    mediumseagreen: "#3cb371",
+                    mediumslateblue: "#7b68ee",
+                    mediumspringgreen: "#00fa9a",
+                    mediumturquoise: "#48d1cc",
+                    mediumvioletred: "#c71585",
+                    midnightblue: "#191970",
+                    mintcream: "#f5fffa",
+                    mistyrose: "#ffe4e1",
+                    moccasin: "#ffe4b5",
+                    navajowhite: "#ffdead",
+                    navy: "#000080",
+                    oldlace: "#fdf5e6",
+                    olive: "#808000",
+                    olivedrab: "#6b8e23",
+                    orange: "#ffa500",
+                    orangered: "#ff4500",
+                    orchid: "#da70d6",
+                    palegoldenrod: "#eee8aa",
+                    palegreen: "#98fb98",
+                    paleturquoise: "#afeeee",
+                    palevioletred: "#db7093",
+                    papayawhip: "#ffefd5",
+                    peachpuff: "#ffdab9",
+                    peru: "#cd853f",
+                    pink: "#ffc0cb",
+                    plum: "#dda0dd",
+                    powderblue: "#b0e0e6",
+                    purple: "#800080",
+                    rebeccapurple: "#663399",
+                    red: "#ff0000",
+                    rosybrown: "#bc8f8f",
+                    royalblue: "#4169e1",
+                    saddlebrown: "#8b4513",
+                    salmon: "#fa8072",
+                    sandybrown: "#f4a460",
+                    seagreen: "#2e8b57",
+                    seashell: "#fff5ee",
+                    sienna: "#a0522d",
+                    silver: "#c0c0c0",
+                    skyblue: "#87ceeb",
+                    slateblue: "#6a5acd",
+                    slategray: "#708090",
+                    slategrey: "#708090", // British English synonym
+                    snow: "#fffafa",
+                    springgreen: "#00ff7f",
+                    steelblue: "#4682b4",
+                    tan: "#d2b48c",
+                    teal: "#008080",
+                    thistle: "#d8bfd8",
+                    tomato: "#ff6347",
+                    turquoise: "#40e0d0",
+                    violet: "#ee82ee",
+                    wheat: "#f5deb3",
+                    white: "#ffffff",
+                    whitesmoke: "#f5f5f5",
+                    yellow: "#ffff00",
+                    yellowgreen: "#9acd32"
+                };
+            },
+            colorNameToHex(colorName) {
+                const color = colorName.toLowerCase();
+                const colorNames = this.getColorNames();
+                if (colorNames[color]) {
+                    return colorNames[color];
+                }
+                return null;
+            },
+            /**
+             * Converts a custom color input into various color formats such as RGB, HSV, HSL, CMYK, and HEX.
+             * It also extracts the alpha (transparency) value and rounds it to 2 decimal places if not 1.
+             *
+             * @param {string} customColor - The input color in various formats (e.g., HEX, RGB, RGBA, HSL, HSLA, or named colors).
+             * @returns {Object|null} An object containing the color in various formats or null if the input is invalid.
+             *
+             * Formats returned:
+             * - hex: HEX representation of the color (e.g., #rrggbb or #rrggbbaa)
+             * - rgb: RGB representation (e.g., {r: 255, g: 255, b: 255, a: 1})
+             * - hsv: HSV representation (e.g., {h: 0, s: 1, v: 1, a: 1})
+             * - hsl: HSL representation (e.g., {h: 0, s: 1, l: 0.5, a: 1})
+             * - cmyk: CMYK representation (e.g., {c: 0, m: 0, y: 0, k: 0})
+             * - alpha: The alpha (transparency) value rounded to 2 decimal places if needed.
+             */
+            convertColorFormats(customColor) {
+                const debug = true;
+                if (debug) {
+                    console.log('convertColorFormats', customColor);
+                }
+                try {
+                    let rgb = null;
+                    let rgba = null;
+                    let hsv = null;
+                    let hsl = null;
+                    let hsla = null;
+                    let alpha = 1;
+
+                    if (typeof customColor === 'string') {
+                        if (debug) {
+                            console.log('customColor is a string', customColor);
+                        }
+                        if (customColor.startsWith('#')) {
+                            if (debug) {
+                                console.log('customColor starts with #');
+                            }
+                            const testHex = $.bsColorPicker.utils.hexToRGBA(customColor);
+                            if (testHex) {
+                                rgb = {
+                                    r: testHex.r,
+                                    g: testHex.g,
+                                    b: testHex.b
+                                }
+                                rgba = {
+                                    ...rgb,
+                                    a: testHex.a
+                                };
+                                alpha = testHex.a;
+                                if (debug) {
+                                    console.log('hex -> rgb =', rgb);
+                                    console.log('hex -> rgba =', rgba);
+                                    console.log('hex -> alpha =', alpha);
+                                }
+                            }
+                        } else if (customColor.includes(',')) {
+                            if (debug) {
+                                console.log('customColor includes ,');
+                            }
+                            // Check for RGBA format
+                            const rgbaMatch = customColor.match(/rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(?:,\s*(0|0?\.\d+|1(\.0)?)\s*)?\)/);
+
+                            if (rgbaMatch) {
+                                const r = parseInt(rgbaMatch[1]);
+                                const g = parseInt(rgbaMatch[2]);
+                                const b = parseInt(rgbaMatch[3]);
+                                const a = rgbaMatch[4] !== undefined && !isNaN(parseFloat(rgbaMatch[4]))
+                                    ? parseFloat(rgbaMatch[4])
+                                    : 1;
+
+                                // Optional: Werte auf Gültigkeit prüfen
+                                if (r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255 || a < 0 || a > 1) {
+                                    console.error('RGBA values out of range:', rgbaMatch);
+                                    return null;
+                                }
+
+                                if (debug) {
+                                    console.log('RGBA values:', {r, g, b, a});
+                                }
+
+                                alpha = parseFloat(a.toFixed(2));
+                                rgb = {r, g, b};
+                                rgba = {
+                                    ...rgb,
+                                    a: alpha // Optional: Rundung auf 2 Nachkommastellen
+                                };
+                            } else {
+                                const hslaMatch = customColor.match(/hsla?\(\s*(\d+)\s*,\s*(\d+)%\s*,\s*(\d+)%\s*(?:,\s*([0-9.]+)\s*)?\)/);
+
+                                if (hslaMatch) {
+                                    const h = parseFloat(hslaMatch[1]);
+                                    const s = parseFloat(hslaMatch[2]);
+                                    const l = parseFloat(hslaMatch[3]);
+                                    const a = rgbaMatch[4] !== undefined && !isNaN(parseFloat(rgbaMatch[4]))
+                                        ? parseFloat(rgbaMatch[4])
+                                        : 1;
+
+                                    // Optional: Werte auf Gültigkeit prüfen
+                                    if (h < 0 || h >= 360 || s < 0 || s > 100 || l < 0 || l > 100 || a < 0 || a > 1) {
+                                        console.error('HSLA values out of range:', hslaMatch);
+                                        return null; // Ungültige Werte, Abbruch
+                                    }
+
+                                    if (debug) {
+                                        console.log('HSLA values:', {h, s, l, a});
+                                    }
+                                    alpha = parseFloat(a.toFixed(2));
+                                    hsl = {
+                                        h: h,          // Hue bleibt so wie sie ist
+                                        s: s / 100,    // Prozentangaben auf dezimaler Bereich umwandeln
+                                        l: l / 100     // Prozentangaben auf dezimaler Bereich umwandeln
+                                    };
+                                    hsla = {
+                                        ...hsl,
+                                        a: alpha // Optional: Rundung auf 2 Nachkommastellen
+                                    };
+
+                                    if (debug) {
+                                        console.log('hsla -> hsl =', hsl);
+                                        console.log('hsla -> alpha =', hsla.a);
+                                    }
+                                }
+                            }
+                        } else {
+                            if (debug) {
+                                console.log('customColor is a unknown string');
+
+                            }
+                            const colorNameToHex = this.colorNameToHex(customColor);
+                            if (debug) {
+                                console.log('colorNameToHex =', colorNameToHex);
+                            }
+                            if (colorNameToHex !== null)// Check for HSLA format
+                            {
+                                return this.convertColorFormats(colorNameToHex);
+                            }
+                            const temp = document.createElement('div');
+                            temp.style.color = customColor;
+                            document.body.appendChild(temp);
+                            const computedColor = window.getComputedStyle(temp).color;
+                            document.body.removeChild(temp);
+
+                            if (debug) {
+                                console.log('computedColor:', computedColor);
+                            }
+
+                            // Verify that a valid computed color is returned
+                            if (!computedColor || computedColor === customColor) {
+                                console.error('Potential infinite loop detected. Aborting.');
+                                return null;
+                            }
+
+                            // Pass the valid computed color to convertColorFormats
+                            return this.convertColorFormats(computedColor);
+                        }
+                    }
+
+                    // Convert RGB to HSV if not already calculated
+                    if (rgb && !hsv) {
+                        hsv = $.bsColorPicker.utils.RGBtoHSV(rgb.r, rgb.g, rgb.b);
+                        if (debug) {
+                            console.log('rgb -> hsv =', hsv);
+                        }
+                    }
+
+                    // Convert HSV to RGB if only HSV is available
+                    if (hsv && !rgb) {
+                        rgb = $.bsColorPicker.utils.HSVtoRGB(hsv.h, hsv.s, hsv.v);
+                        if (debug) {
+                            console.log('hsv -> rgb =', rgb);
+                        }
+                    }
+
+                    // Convert RGB to HSL if not already calculated
+                    if (rgb && !hsl) {
+                        hsl = $.bsColorPicker.utils.RGBtoHSL(rgb.r, rgb.g, rgb.b);
+                        if (debug) {
+                            console.log('rgb -> hsl =', hsl);
+                        }
+                    }
+
+                    // CMYK conversion (if RGB is available)
+                    const cmyk = rgb ? $.bsColorPicker.utils.RGBtoCMYK(rgb.r, rgb.g, rgb.b) : null;
+                    if (debug) {
+                        console.log('rgb -> cmyk =', cmyk);
+                    }
+
+                    // Generate HEX format if RGB exists
+                    const hex = rgba ? $.bsColorPicker.utils.RGBtoHex(rgba.r, rgba.g, rgba.b, rgba.a) : null;
+                    if (debug) {
+                        console.log('rgb -> hex =', hex);
+                    }
+
+                    // Round alpha to 2 decimal places if not 1
+                    alpha = alpha === 1 ? 1 : parseFloat(alpha.toFixed(2));
+
+                    // Return all formats
+                    const returnData = {
+                        hex: hex,
+                        rgb: rgb,
+                        rgba: rgba,
+                        hsv: hsv,
+                        hsl: hsl,
+                        hsla: hsla,
+                        cmyk: cmyk,
+                        alpha: alpha
+                    };
+                    if (debug) {
+                        console.log('returnData =', returnData);
+                    }
+                    return returnData;
+                } catch (e) {
+                    console.error('Invalid color format in function convertColorFormats:', e);
+                    return null;
+                }
             }
         }
     };
@@ -241,18 +728,19 @@
                 return $(el).bsColorPicker(optionsOrMethod, params)
             });
         }
-
         const optionsGiven = typeof optionsOrMethod === 'object';
         const methodGiven = typeof optionsOrMethod === 'string';
 
         const $element = $(this);
-        const initialColor = getValueFromElement($element);
-
+        let settings;
         if (!$element.data('initBsColorPicker')) {
-            let settings = $.bsColorPicker.getDefaults();
+            // immediately switch to initialized, so that a multiple call is as good as impossible
+            $element.data('initBsColorPicker', true);
+            settings = $.bsColorPicker.getDefaults();
+            const dataAttributes = $element.data();
 
-            if ($element.data() || optionsGiven) {
-                settings = $.extend(true, {}, settings, $element.data(), optionsOrMethod || {});
+            if (dataAttributes || optionsGiven) {
+                settings = $.extend(true, {}, settings, optionsOrMethod || {}, dataAttributes || {});
             }
 
             setSettings($element, settings);
@@ -260,30 +748,39 @@
             $element.data('vars', {
                 size: 200, // Farbfeld
                 previewSize: 50, // Vorschau
-                sliderSize: 50, // hue & opacity slider
-                sliderWidth: 14,
-                padding: 10,
-                currentHue: 0,
-                currentOpacity: 1,
-                currentSaturation: 1,
-                currentValue: 1,
-                activeControl: null
+                sliderWidth: 14, // width of slider hue & opacity
+                padding: 10, // padding between elements
+                currentHue: 0, // current hue value
+                currentOpacity: 1, // current opacity value
+                currentSaturation: 1, // current saturation value
+                currentValue: 1, activeControl: null // currently active control (color, hue, opacity)
             });
-            // total = previewSize + padding + size + padding + sliderWidth + padding + sliderWidth;
-            // 308 = 50 + 10 + 200 + 10 + 14 + 10 + 14
+
+            if ($element.is('input') && $element.attr('type') === 'color') {
+                $element.attr('type', 'text');
+            }
 
             init($element).then(() => {
-
+                if (! $element.data('ignoreEvents')) {
+                    trigger($element, 'init');
+                } else {
+                    $element.removeData('ignoreEvents');
+                }
                 if (settings.debug) {
                     log('Init completed');
                 }
             });
+        } else {
+            settings = getSettings($element);
         }
 
         if (methodGiven) {
             switch (optionsOrMethod) {
                 case 'val':
-                    updateByValue($element, params);
+                    setValue($element, params);
+                    break;
+                case 'updateOption':
+                    updateOptions($element, params);
                     break;
             }
         }
@@ -291,39 +788,85 @@
         return $element;
     };
 
+    function destroy($element) {
+        const dropdown = getDropdown($element);
+        $element.insertAfter(dropdown);
+        $element.removeData('initBsColorPicker');
+        $element.removeData('vars');
+        $element.removeData('selected');
+        $element.removeData('settings');
+    }
+
+    function updateOptions($element, options) {
+        if (typeof options === 'object') {
+            const settings = getSettings($element);
+            const newSettings = $.extend(true, {}, $.bsColorPicker.getDefaults(), settings, options);
+            destroy($element);
+            $element.data('ignoreEvents', true);
+            $element.bsColorPicker(newSettings);
+        }
+    }
+
+    /**
+     * Retrieves the value from a given element and checks if it's empty.
+     * Returns null if the value is empty, otherwise returns the value.
+     *
+     * @param {jQuery} $element - The jQuery object of the related element.
+     * @returns {string|null} The value of the element or null if the value is empty.
+     */
     function getValueFromElement($element) {
-        // if ($element.attr('type') === 'color') {
-        //     $element.val($element.attr('value'));
-        // }
-        const value = $element.val();
-        return isValueEmpty(value) ? null : value;
+        const settings = getSettings($element);
+        if (settings.debug) {
+            log('getValueFromElement called');
+        }
+        const value = $element.attr('value');
+        if (settings.debug) {
+            log('getValueFromElement value =', value);
+        }
+        const returnValue = $.bsColorPicker.utils.isValueEmpty(value) ? null : value;
+        if (settings.debug) {
+            log('getValueFromElement returnValue =', returnValue);
+        }
+
+        return returnValue;
     }
 
-    function isValueEmpty(value) {
-        if (value === null || value === undefined) {
-            return true; // Null or undefined
-        }
-        if (Array.isArray(value)) {
-            return value.length === 0; // Empty array
-        }
-        if (typeof value === 'string') {
-            return value.trim().length === 0; // Empty string (including only spaces)
-        }
-        return false; // All other values are considered non-empty (including numbers)
-    }
 
+    /**
+     * Logs a message to the browser's console with a custom prefix.
+     *
+     * @param {string} message - The main log message to display.
+     * @param {...any} params - Additional parameters to log with the message.
+     */
     function log(message, ...params) {
         if (window.console && window.console.log) {
             window.console.log('bsColorPicker LOG: ' + message, ...params);
         }
     }
 
+    /**
+     * Calculates the total width of the canvas for the given element.
+     *
+     * The calculation includes values such as preview size, padding, size, and slider width.
+     *
+     * @param {jQuery} $element - The jQuery object of the related element.
+     * @returns {number} The total width of the canvas.
+     */
     function calcTotalWidth($element) {
         const vars = getVars($element);
-        // 50 + 10 + 200 + 10 + 14 + 10 + 14 = 308
+        // Total width calculation formula:
+        // total = previewSize + padding + size + padding + sliderWidth + padding + sliderWidth
+        // Example: 308 = 50 + 10 + 200 + 10 + 14 + 10 + 14
         return vars.previewSize + vars.padding + vars.size + vars.padding + vars.sliderWidth + vars.padding + vars.sliderWidth;
     }
 
+    /**
+     * Sets the 'settings' data attribute for the given element.
+     * Optionally logs the settings if the debug mode is enabled.
+     *
+     * @param {jQuery} $element - The jQuery object of the related element.
+     * @param {Object} settings - The settings object to store in the data attribute.
+     */
     function setSettings($element, settings) {
         if (settings.debug) {
             log('Set settings to:', settings);
@@ -331,133 +874,368 @@
         $element.data('settings', settings);
     }
 
+    /**
+     * Retrieves settings stored in the data attributes of the given element.
+     *
+     * @param {jQuery} $element - The jQuery object of the related element.
+     * @returns {*} The data stored under the 'settings' key in the element.
+     */
     function getSettings($element) {
         return $element.data('settings');
     }
 
+    /**
+     * Sets a specific property within the 'vars' data attribute of the given element.
+     *
+     * @param {jQuery} $element - The jQuery object of the related element.
+     * @param {string} prop - The property name to set or update.
+     * @param {*} value - The value to assign to the specified property.
+     */
     function setVar($element, prop, value) {
+        const settings = getSettings($element);
+        if (settings.debug) {
+            log('setVar called');
+        }
         const vars = getVars($element);
         vars[prop] = value;
+        if (settings.debug) {
+            log('Set var', prop, '=', value, 'vars =', vars);
+        }
         $element.data('vars', vars);
     }
 
+    /**
+     * Retrieves variables stored in the data attributes of the given element.
+     *
+     * @param {jQuery} $element - The jQuery object of the related element.
+     * @returns {*} The data stored under the 'vars' key in the element.
+     */
     function getVars($element) {
         return $element.data('vars');
     }
 
+    /**
+     * Finds the closest dropdown container related to the given element.
+     *
+     * @param {jQuery} $element - The jQuery object of the related element.
+     * @returns {jQuery} The jQuery object of the closest dropdown container.
+     */
     function getDropdown($element) {
         return $element.closest('.' + classDropdown);
     }
 
+    /**
+     * Retrieves the canvas element within the dropdown associated with the given element.
+     *
+     * @param {jQuery} $element - The jQuery object of the related element.
+     * @returns {jQuery} The jQuery object of the canvas element within the dropdown.
+     */
     function getCanvas($element) {
-        return getDropdown($element).find(`.${classCanvas}`)
+        return getDropdown($element).find(`.${classCanvas}`);
     }
 
+    /**
+     * Retrieves the 2D rendering context of the canvas element associated with the given element.
+     *
+     * @param {jQuery} $element - The jQuery object of the color picker or related element.
+     * @returns {CanvasRenderingContext2D} The 2D context of the associated canvas element.
+     */
     function getCanvasContext($element) {
         return getCanvas($element).get(0).getContext('2d');
     }
 
-    function setColorOnElement($element) {
-        const dropdown = getDropdown($element);
-        const colorSet = $element.data('selected');
-        const strings = formatSelectedToString(colorSet);
-        updateButtonColor($element, strings.rgba);
-        $element.val(strings.rgba);
-        $element.attr('value',strings.rgba);
-        updateColor($element, true);
-        dropdown.dropdown('hide');
+    /**
+     * Resets the color of the given element to its initial value and optionally closes the dropdown.
+     *
+     * @param {jQuery} $element - The jQuery object of the color picker element.
+     * @param {boolean} [closeOpenDropdown=false] - Whether to close the dropdown after resetting the color.
+     */
+    function resetColor($element, closeOpenDropdown = false) {
+        const settings = getSettings($element);
+        if (settings.debug) {
+            log('resetColor called with closeDropdown =', closeOpenDropdown);
+        }
+        // Retrieve the initial color value from the element
+        const value = getValueFromElement($element);
+
+        if (settings.debug) {
+            log('resetColor value =', value);
+        }
+        // Set the element back to its initial value
+        setValue($element, value);
+
+        // Optionally close the dropdown if specified
+        if (closeOpenDropdown) {
+            closeDropdown($element);
+        }
     }
 
+    function closeDropdown($element) {
+        getDropdown($element).find('.dropdown-toggle.show').dropdown('hide');
+    }
+
+    /**
+     * Sets the selected color on the given element, updates its value, and hides the dropdown.
+     *
+     * @param {jQuery} $element - The jQuery object of the color picker element.
+     */
+    function setColorOnElement($element) {
+        const settings = getSettings($element);
+        if (settings.debug) {
+            log('setColorOnElement called');
+        }
+        const dropdown = getDropdown($element); // Get the dropdown associated with the element
+        const colorSet = $element.data('selected'); // Retrieve the selected color data
+        if (settings.debug) {
+            log('setColorOnElement colorSet =', colorSet);
+        }
+        const strings = formatSelectedToString(colorSet); // Format the selected color into string formats
+        if (settings.debug) {
+            log('setColorOnElement as strings =', strings);
+        }
+        // Set the element's value using the RGBA format
+        setValue($element, strings.rgba);
+
+        // Hide the dropdown after setting the value
+        closeDropdown($element);
+    }
+
+    /**
+     * Formats the selected color details into human-readable string formats such as HEX, RGB, RGBA, HSL, and HSLA.
+     * All numeric values (e.g., hue, saturation, lightness, and alpha) are rounded appropriately.
+     *
+     * @param {Object} details - An object containing color information in various formats.
+     * @param {string} [details.hex] - The HEX color representation (e.g., #rrggbb or #rrggbbaa).
+     * @param {Object} [details.rgb] - The RGB representation (e.g., {r: 255, g: 255, b: 255}).
+     * @param {Object} [details.rgba] - The RGBA representation (e.g., {r: 255, g: 255, b: 255, a: 0.5}).
+     * @param {Object} [details.hsl] - The HSL/HSLA representation (e.g., {h: 360, s: 1, l: 0.5, a: 0.5}).
+     * @returns {Object} An object containing formatted and rounded color values or an error if no color data is available.
+     */
     function formatSelectedToString(details) {
-        if (!details) return { error: "Keine Farbdaten verfügbar." };
+        if (!details) return {error: "No color data available."};
 
-        const {
-            hex,
-            rgb,
-            rgba,
-            hsl
-        } = details;
-
+        const {hex, rgb, rgba, hsl} = details;
         const result = {};
 
+        // Format HEX if available
         if (hex) {
-            // HEX im CSS-Format
             result.hex = `${hex}`;
         }
 
+        // Format RGB if available
         if (rgb) {
-            // RGB im CSS-Format
-            result.rgb = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+            const r = Math.round(rgb.r);
+            const g = Math.round(rgb.g);
+            const b = Math.round(rgb.b);
+            result.rgb = `rgb(${r}, ${g}, ${b})`;
         }
 
+        // Format RGBA if available
         if (rgba) {
-            // RGBA im CSS-Format
-            result.rgba = `rgba(${rgba.r}, ${rgba.g}, ${rgba.b}, ${rgba.a})`;
+            const r = Math.round(rgba.r);
+            const g = Math.round(rgba.g);
+            const b = Math.round(rgba.b);
+            const a = parseFloat(rgba.a.toFixed(2)); // Round alpha to 2 decimal places
+            result.rgba = `rgba(${r}, ${g}, ${b}, ${a})`;
         }
 
+        // Format HSL/HSLA if available
         if (hsl) {
-            // HSL im CSS-Format
-            const h = Math.round(hsl.h);
-            const s = Math.round(hsl.s * 100);
-            const l = Math.round(hsl.l * 100);
+            const h = Math.round(hsl.h); // Round hue to the nearest whole number
+            const s = Math.round(hsl.s * 100); // Convert to percentage and round
+            const l = Math.round(hsl.l * 100); // Convert to percentage and round
+            const a = hsl.a !== undefined ? parseFloat(hsl.a.toFixed(2)) : 1; // Round alpha to 2 decimal places if provided
+
+            // HSL format
             result.hsl = `hsl(${h}, ${s}%, ${l}%)`;
 
-            // HSLA im CSS-Format
-            result.hsla = `hsla(${h}, ${s}%, ${l}%, ${hsl.a})`;
+            // HSLA format
+            result.hsla = `hsla(${h}, ${s}%, ${l}%, ${a})`;
         }
 
         return result;
     }
 
+    /**
+     * Sets the value of the color picker, updates the internal state, UI, and triggers necessary updates.
+     *
+     * @param {jQuery} $element - The jQuery object of the color picker.
+     * @param {string} value - The color value to set, in any supported format (e.g., HEX, RGB, HSL).
+     */
+    function setValue($element, value) {
+        const settings = getSettings($element);
+        if (settings.debug) {
+            log('setValue called with value =', value);
+        }
+        if (value) {
+            // Convert the input value into various color formats
+            const color = $.bsColorPicker.utils.convertColorFormats(value);
+            if (settings.debug) {
+                log('setValue color =', color);
+            }
+
+            if (color) {
+                // Update internal variables (opacity, hue, saturation, value)
+                setVar($element, 'currentOpacity', parseFloat(color.alpha.toFixed(2)));
+                setVar($element, 'currentHue', color.hsv.h);
+                setVar($element, 'currentSaturation', color.hsv.s);
+                setVar($element, 'currentValue', color.hsv.v);
+
+                // Update the UI components
+                updateColor($element);               // Refresh the canvas (color representation)
+                updateAllInputs($element, color.rgb); // Update input fields with the new color
+                updateButtonColor($element, value);  // Update the button's preview color
+
+                const colorSet = $element.data('selected');
+                // Convert the selected color to a string format based on settings
+                const strings = formatSelectedToString(colorSet);
+                if (settings.debug) {
+                    log('setValue strings =', strings);
+                }
+                let newValue;
+                switch (settings.format) {
+                    case 'hex':
+                        newValue = strings.hex;// Set the value as HEX
+                        break;
+                    case 'rgb':
+                        newValue = strings.rgb; // Set the value as RGB
+                        break;
+                    case 'hsl':
+                        newValue = strings.hsl; // Set the value as HSL
+                        break;
+                    case 'hsla':
+                        newValue = strings.hsla; // Set the value as HSLA
+                        break;
+                    default:
+                        newValue = strings.rgba; // Set the value as RGBA
+                        break;
+                }
+                if (settings.debug) {
+                    log(`setValue newValue to format (${settings.format})  =`, newValue);
+                }
+                $element.val(newValue);
+            } else {
+                if (settings.debug) {
+                    log('setValue color is null');
+                }
+                // Handle invalid color input
+                trigger($element, 'error', 'Invalid color format');
+                $element.val(null); // Clear the value
+            }
+        }
+    }
+
+    /**
+     * Initializes the color picker element, including settings, dropdown building, event binding,
+     * and setting a default value. Returns a promise to handle asynchronous operations.
+     *
+     * @param {jQuery} $element - The jQuery object of the color picker element to initialize.
+     * @returns {Promise} A promise that resolves once the initialization is complete.
+     */
     async function init($element) {
         const settings = getSettings($element);
+
+        // Log initialization if debugging is enabled
         if (settings.debug) {
             log('Start init element with settings:', settings);
         }
-        return new Promise((resolve, reject) => {
-            $element.hide();
-            buildDropdown($element);
-            events($element);
-            const value = getValueFromElement($element);
-            if (value) {
-                updateByValue($element, value);
-                updateButtonColor($element, value);
+
+        return new Promise((resolve) => {
+            // Hide the original element initially
+            if (settings.debug) {
+                log('Hide original element');
             }
-            $element.data('initBsColorPicker', true);
+            $element.hide();
+
+            // Build the dropdown UI for the color picker
+            if (settings.debug) {
+                log('Build dropdown');
+            }
+            buildDropdown($element);
+
+            // Bind event listeners for interactions
+            if (settings.debug) {
+                log('Bind event listeners');
+            }
+            events($element);
+
+            // Get the initial value for the color picker; use emptyColor if no value is present
+            const value = getValueFromElement($element) || settings.emptyColor;
+
+            if (settings.debug) {
+                log('Set initial value:', value);
+            }
+            // Set the initial value of the color picker
+            setValue($element, value);
+
+            // Mark the element as initialized
+            if (settings.debug) {
+                log('Mark element as initialized');
+            }
+            // Resolve the promise indicating the initialization is complete
             resolve();
-        })
+        });
     }
 
+    /**
+     * Initializes and binds events to the color picker element and its dropdown.
+     * Handles updates, input changes, canvas drawing, and user interactions with the color picker.
+     *
+     * @param {jQuery} $element - The jQuery object of the color picker element.
+     */
     function events($element) {
-        log('init events');
+        const settings = getSettings($element);
+        if (settings.debug) {
+            log('init events');
+        }
+
+        // Get the dropdown associated with the element
         const dropdown = getDropdown($element);
+
+        // Listen for `update` events on the color picker element
         $element.on('update.bs.colorPicker', function (e, data) {
-            console.log(data);
-            updateAllInputs($element, data.rgb);
-        })
+            const settings = getSettings($element);
+            if (settings.debug) {
+                log('update event triggered', data);
+            }
+            updateAllInputs($element, data.rgb); // Update all input fields with the new color values
+        });
+
+        // Bind event listeners to the dropdown
         dropdown
+            // Handle changes in input fields
             .on('change', '.' + classInputs, function (e) {
                 const $input = $(e.currentTarget);
-                updateFromInput($element, $input);
+                updateFromInput($element, $input); // Update the canvas and UI based on new input
+            })
+            .on('show.bs.dropdown', function (e) {
+                $('.' + classDropdown + ' .dropdown-toggle.show').not($(e.currentTarget)).dropdown('toggle');
             })
             .on('shown.bs.dropdown', function () {
-                log('Dropdown is shown, initializing canvas');
+                if (settings.debug) {
+                    log('Dropdown is shown, initializing canvas');
+                }
                 const vars = getVars($element);
                 const canvas = getCanvas($element).get(0);
-                canvas.width = calcTotalWidth($element);
-                canvas.height = vars.size;
-                // const value = getValueFromElement($element);
-                // console.log('----------------------------------',value);
-                updateColor($element, false); // Zeichne die Canvas erst jetzt
-                // if (value) {
-                //     updateByValue($element, value);
-                // }
+                canvas.width = calcTotalWidth($element); // Set canvas width dynamically
+                canvas.height = vars.size; // Set canvas height dynamically
+                updateColor($element, false); // Initialize and draw the color canvas
             })
+            // Handle mouse down events on the canvas
             .on('mousedown', '.' + classCanvas, function (e) {
-                log('mousedown on', classCanvas, $element)
+                if (settings.debug) {
+                    log('event mousedown on', classCanvas, $element);
+                }
+
+
+                // Get the mouse position relative to the canvas
                 const pos = $.bsColorPicker.utils.getMousePosition(e, e.currentTarget);
+
+                // Determine the area clicked (e.g., color, hue, opacity)
                 const area = getClickedArea($element, pos.x);
-                setVar($element, 'activeControl', area);
+                setVar($element, 'activeControl', area); // Set the active area to be manipulated
+
+                // Handle the click based on the area
                 if (area === 'color') {
                     handleColorAreaClick($element, pos);
                 } else if (area === 'hue') {
@@ -465,15 +1243,22 @@
                 } else if (area === 'opacity') {
                     handleOpacityClick($element, pos);
                 }
-            })
+            });
+
+        // Bind event listeners to the document for global mouse interactions
         $(document)
+            // Handle mouse move events to update active control areas
             .on('mousemove', function (e) {
                 const canvas = getCanvas($element).get(0);
                 const vars = getVars($element);
                 const activeControl = vars.activeControl;
-                if (!activeControl) return;
 
+                if (!activeControl) return; // If no active control, exit
+
+                // Get the mouse position relative to the canvas
                 const pos = $.bsColorPicker.utils.getMousePosition(e, canvas);
+
+                // Handle updates based on the active control
                 if (activeControl === 'color') {
                     handleColorAreaClick($element, pos);
                 } else if (activeControl === 'hue') {
@@ -482,363 +1267,468 @@
                     handleOpacityClick($element, pos);
                 }
             })
-            .on('mouseup', function (e) {
-                setVar($element, 'activeControl', null);
-            })
+
+            // Handle mouse up events to disable active controls
+            .on('mouseup', function () {
+                setVar($element, 'activeControl', null); // Reset active control
+            });
     }
 
-
+    /**
+     * Builds a dropdown component for the color picker, containing a canvas for the color preview,
+     * input fields for multiple color formats, and control buttons (reset, close, apply).
+     *
+     * @param {jQuery} $element - The jQuery object representing the color picker element.
+     */
     function buildDropdown($element) {
-
         const vars = getVars($element);
 
-        // Hier erweitern wir die totalWidth um einen weiteren Slider + Padding
+        // Calculate the total width for the canvas
         const canvasTotalWidth = calcTotalWidth($element);
 
+        // Get settings for customization
         const settings = getSettings($element);
-        const dropdown = $(`<div>`, {
-            class: classDropdown + ' dropdown',
+
+        // Create the dropdown container and insert it after the element
+        const dropdown = $('<div>', {
+            class: `${classDropdown} dropdown`,
         }).insertAfter($element);
 
+        // Move the original element into the dropdown
         $element.appendTo(dropdown);
 
-        // const button = $(`<button>`, {
-        //     html: '<div style="width:20px; height: 20px" class="border mr-1 me-1"></div>',
-        //     type: "button",
-        //     class: `btn dropdown-toggle ${settings.btnClass} d-flex align-items-center`,
-        //     'data-toggle': "dropdown",
-        //     'data-bs-toggle': "dropdown",
-        //     'data-bs-auto-close': "false",
-        //     'aria-expanded': false
-        // }).appendTo(dropdown);
-
-        const button = $(`<button>`, {
-            html: `
-        <div style="width:20px; height: 20px; position: relative;" class=" mr-1 me-1">
-            <canvas width="20" height="20" style="position: absolute; border-radius: 50%; top: 0; left: 0;"></canvas>
-        </div>
-    `,
-            type: "button",
+        // Define and append the toggling button with optional text and canvas for color preview
+        let btnText = settings.btnText ? `<span class="mx-1">${settings.btnText}</span>` : '';
+        const button = $('<button>', {
+            html: [
+                '<div class="d-flex align-items-center">',
+                '<div style="width:20px; height:20px; position:relative;" class="mr-1 me-1 rounded-circle border">',
+                '<canvas width="20" height="20" style="position:absolute; border-radius:50%; top:0; left:0;"></canvas>',
+                '</div>', btnText, '</div>',].join(''),
+            type: 'button',
             class: `btn dropdown-toggle ${settings.btnClass} d-flex align-items-center`,
-            'data-toggle': "dropdown",
-            'data-bs-toggle': "dropdown",
-            'data-bs-auto-close': "outside",
-            'aria-expanded': false
+            'data-toggle': 'dropdown',
+            'data-bs-toggle': 'dropdown',
+            'data-bs-auto-close': 'false',
+            'aria-expanded': false,
         }).appendTo(dropdown);
 
-        const dropdownMenu = $(`<div>`, {
+        // Create the dropdown menu and append it
+        const dropdownMenu = $('<div>', {
             class: 'dropdown-menu p-3',
         }).appendTo(dropdown);
 
-        // Creating Color Wheel Container
+        // Create the container for the color wheel and inputs
         const $colorContainer = $('<div>', {
-            class: 'd-flex  p-0',
-            css: {
-                boxSizing: 'border-box',
-                'width': `calc(${canvasTotalWidth}px + 300px)`,
-                'height': 'auto',
-                'gap': '10px'
-            }
+            class: 'd-flex p-0 flex-wrap', css: {
+                boxSizing: 'border-box', width: `calc(${canvasTotalWidth}px + 300px)`, height: 'auto', gap: '10px',
+            },
         }).appendTo(dropdownMenu);
 
+        // Create and append the canvas for the color adjustment
         const canvas = $('<canvas>', {
             css: {
-                width: canvasTotalWidth + 'px',  // Sichtbarkeit im DOM
-                height: vars.size + 'px',        // Ansicht im DOM
-                boxSizing: 'border-box',        // Box-Berechnung ohne Padding/Borders
+                width: `${canvasTotalWidth}px`,
+                height: `${vars.size}px`,
+                boxSizing: 'border-box',
                 border: 'none',
                 padding: 0,
-                margin: 0
-            },
-            class: classCanvas,
-            // Skalierte Zeichenfläche
-            width: canvasTotalWidth, // Tatsächliche Zeichenfläche (skaliert)
-            height: vars.size         // Tatsächliche Zeichenfläche (skaliert)
+                margin: 0,
+            }, class: classCanvas, width: canvasTotalWidth, height: vars.size,
         }).appendTo($colorContainer);
 
+        // Create a container for the input fields and add the various color format inputs
         const $inputsContainer = $('<div>').appendTo($colorContainer);
-        createInputGroup('HEX', '#ff0000', $inputsContainer)
-        createInputGroup('RGBA', '255, 0, 0', $inputsContainer)
-        createInputGroup('CMYK', '0, 100, 100, 0', $inputsContainer)
-        createInputGroup('HSV', '0, 100, 100', $inputsContainer)
+        createInputGroup('HEX', '#ff0000', $inputsContainer);
+        createInputGroup('RGBA', '255, 0, 0', $inputsContainer);
+        createInputGroup('CMYK', '0, 100, 100, 0', $inputsContainer);
+        createInputGroup('HSV', '0, 100, 100', $inputsContainer);
         createInputGroup('HSLA', '0, 100, 50', $inputsContainer);
 
-        const CheckButton = $(`<button>`, {
-            html: `
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4CAF50" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M20 6L9 17L4 12"></path>
-</svg>
-    `,
-            type: "button",
-            class: `btn btn-link d-flex justify-content-end align-items-center`,
-            click: function () {
-                setColorOnElement($element);
-            }
+        // Add control buttons (close, reset, apply) below the input fields
+        const $controllContainer = $('<div>', {
+            class: 'd-flex mt-2 btn-group btn-group-sm justify-content-end align-items-center',
         }).appendTo($inputsContainer);
+
+        // Close button
+        $('<button>', {
+            html: `<i class="${settings.icons.close}"></i>`, type: 'button', class: 'btn btn-link', click: function () {
+                resetColor($element, true); // Reset and close
+            },
+        }).appendTo($controllContainer);
+
+        // Reset button
+        $('<button>', {
+            html: `<i class="${settings.icons.reset}"></i>`, type: 'button', class: 'btn btn-link', click: function () {
+                resetColor($element); // Only reset
+            },
+        }).appendTo($controllContainer);
+
+        // Apply button
+        $('<button>', {
+            html: `<i class="${settings.icons.check}"></i>`, type: 'button', class: 'btn btn-link', click: function () {
+                setColorOnElement($element); // Apply the selected color
+            },
+        }).appendTo($controllContainer);
     }
 
+    /**
+     * Updates the color displayed on the color picker button, rendering it onto the canvas element.
+     * This function draws a checkerboard background (representing transparency) and overlays the selected color.
+     *
+     * @param {jQuery} $element - The jQuery object representing the color picker element.
+     * @param {string} colorValue - The selected color value in any valid format (e.g., hex, rgba).
+     */
     function updateButtonColor($element, colorValue) {
+        // Get the dropdown and the button containing the canvas
         const dropdown = getDropdown($element);
         const btn = dropdown.find('.dropdown-toggle');
         const canvas = btn.find('canvas').get(0);
+
         if (canvas && canvas.getContext) {
             const ctx = canvas.getContext('2d');
-            const size = canvas.width;
+            const size = canvas.width; // Canvas is assumed to be square
 
-            // 1. Schachbrett-Hintergrund zeichnen
-            const tileSize = 4; // Größe der Kacheln
+            // 1. Draw checkerboard background for transparency visualization
+            const tileSize = 4; // Size of each tile in the checkerboard pattern
             for (let x = 0; x < size; x += tileSize) {
                 for (let y = 0; y < size; y += tileSize) {
+                    // Alternate between light gray (#eee) and slightly darker gray (#ddd)
                     ctx.fillStyle = (x / tileSize + y / tileSize) % 2 === 0 ? '#eee' : '#ddd';
-                    ctx.fillRect(x, y, tileSize, tileSize);
+                    ctx.fillRect(x, y, tileSize, tileSize); // Draw the tile
                 }
             }
 
-            // 2. Hauptfarbe (mit Alpha) zeichnen
-            const color = convertColorFormats(colorValue); // Nutze die Funktion von vorher
+            // 2. Draw the main color overlay based on the selected color value
+            const color = $.bsColorPicker.utils.convertColorFormats(colorValue); // Convert the color value into usable formats
             if (color && color.rgb) {
+                // Create an RGBA string using the color data, including alpha
                 const rgba = `rgba(${color.rgb.r}, ${color.rgb.g}, ${color.rgb.b}, ${color.alpha})`;
-                ctx.fillStyle = rgba; // Transparent-fähige Farbe
-                ctx.fillRect(0, 0, size, size); // Komplettes Canvas füllen
+                ctx.fillStyle = rgba;                  // Set the fill style to the selected color
+                ctx.fillRect(0, 0, size, size);        // Fill the entire canvas with the color
             }
         }
     }
 
-
+    /**
+     * Creates an input group with a label and a text input field, appends it to the specified container.
+     * This function is useful for generating labeled input fields dynamically.
+     *
+     * @param {string} label - The text to display in the label of the input group.
+     * @param {string} placeholder - The placeholder text to display in the input field.
+     * @param {jQuery} $inputsContainer - The jQuery object representing the container to append the input group.
+     */
     function createInputGroup(label, placeholder, $inputsContainer) {
+        // Create the input group container
         const $inputGroup = $('<div>', {
-            class: 'input-group input-group-sm mb-1',
+            class: 'input-group input-group-sm mb-1', // Bootstrap input group classes
         }).appendTo($inputsContainer);
 
+        // Create and append the label span element
         $('<span>', {
-            style: 'width: 60px',
-            class: 'input-group-text',
-            text: label.toUpperCase(),
+            style: 'width: 60px',                     // Fixed width for the label
+            class: 'input-group-text',                // Bootstrap class for input group label
+            text: label.toUpperCase(),                // Convert the label text to uppercase
         }).appendTo($inputGroup);
 
+        // Create and append the text input element
         $('<input>', {
-            'data-role': label.toLowerCase(),
-            type: 'text',
-            class: 'form-control ' + classInputs,
-            placeholder: placeholder,
+            'data-role': label.toLowerCase(),         // Set data-role using lowercase label
+            type: 'text',                             // Input type: text
+            class: 'form-control ' + classInputs,     // Add Bootstrap and custom input classes
+            placeholder: placeholder,                 // Set placeholder text
         }).appendTo($inputGroup);
     }
 
+    /**
+     * Triggers the specified event on the color picker element with any additional parameters.
+     * It also triggers an "all.bs.colorPicker" event before the specific event.
+     * Supports a debug mode to log event details in the console.
+     *
+     * @param {jQuery} $element - The jQuery object representing the color picker element.
+     * @param {string} event - The name of the event to be triggered (e.g., "update").
+     * @param {...any} params - Additional parameters to pass along with the event.
+     */
     function trigger($element, event, ...params) {
+        // Retrieve settings for debugging
         const settings = getSettings($element);
         const p = params && params.length > 0 ? params : [];
 
+        // Log event details if debugging is enabled
         if (settings.debug) {
             if (p.length > 0) {
                 log('Triggering event:', event, 'with params:', ...p);
             } else {
                 log('Triggering event:', event, 'without params');
             }
-
         }
 
         if (event !== 'all') {
-            // trigger "all" event directly
+            // Trigger the "all" event directly (generic event for all actions)
             $element.trigger('all.bs.colorPicker', event, ...p);
 
-            // trigger specific event directly
+            // Trigger the specific event directly (e.g., "update.bs.colorPicker")
             $element.trigger(`${event}.bs.colorPicker`, ...p);
         }
     }
 
+    /**
+     * Updates the color selection state and redraws all components of the color picker.
+     * This function handles the main canvas, hue slider, opacity slider, and markers,
+     * and updates all information related to the selected color.
+     *
+     * @param {jQuery} $element - The jQuery object representing the color picker element.
+     * @param {boolean} [doTrigger=true] - Whether to trigger the "update" event after updating the color.
+     */
     function updateColor($element, doTrigger = true) {
+        // Get the canvas and its context
         const canvas = getCanvas($element).get(0);
         const context = getCanvasContext($element);
+
+        // Calculate total width of the color picker
         const totalWidth = calcTotalWidth($element);
+
+        // Retrieve relevant variables
         const vars = getVars($element);
 
+        // Clear the entire canvas
         context.clearRect(0, 0, totalWidth, vars.size);
 
+        // Calculate the current color as rgb
         const rgb = $.bsColorPicker.utils.HSVtoRGB(vars.currentHue, vars.currentSaturation, vars.currentValue);
         const rgbaColor = `rgba(${rgb.r},${rgb.g},${rgb.b},${vars.currentOpacity})`;
-        drawPreview($element, rgbaColor);
-        drawMainSquare($element, vars.currentHue);
-        drawHueSlider($element);
-        drawOpacitySlider($element);
 
-        // Zeichne die Marker
+        // Redraw all components of the color picker
+        drawPreview($element, rgbaColor);                // Preview section
+        drawMainSquare($element, vars.currentHue);       // Main color square (Saturation and Value)
+        drawHueSlider($element);                         // Hue slider
+        drawOpacitySlider($element);                     // Opacity slider
+
+        // Calculate and draw markers
         const mainX = vars.previewSize + vars.padding + (vars.currentSaturation * vars.size);
         const mainY = (1 - vars.currentValue) * vars.size;
-        drawMarker($element, mainX, mainY);
+        drawMarker($element, mainX, mainY);              // Marker for main color square
 
         const hueY = (vars.currentHue / 360) * vars.size;
-        drawMarker($element, vars.previewSize + vars.padding + vars.size + vars.padding + vars.sliderWidth / 2, hueY, true);
+        drawMarker($element, vars.previewSize + vars.padding + vars.size + vars.padding + vars.sliderWidth / 2, hueY, true);                                               // Marker for hue slider
 
         const opacityY = (1 - vars.currentOpacity) * vars.size;
-        drawMarker($element, vars.previewSize + vars.padding + vars.size + vars.padding + vars.sliderWidth + vars.padding + vars.sliderWidth / 2, opacityY, true);
+        drawMarker($element, vars.previewSize + vars.padding + vars.size + vars.padding + vars.sliderWidth + vars.padding + vars.sliderWidth / 2, opacityY, true);                                               // Marker for opacity slider
 
-        // Zusätzliche Farbformate berechnen
-        const hex = $.bsColorPicker.utils.RGBtoHex(rgb.r, rgb.g, rgb.b);
-        const hsl = $.bsColorPicker.utils.RGBtoHSL(rgb.r, rgb.g, rgb.b);
-        const cmyk = $.bsColorPicker.utils.RGBtoCMYK(rgb.r, rgb.g, rgb.b);
+        // Calculate additional color formats
+        const data = $.bsColorPicker.utils.convertColorFormats(`rgba(${rgb.r},${rgb.g},${rgb.b},${vars.currentOpacity})`)
 
-        // Hinzufügen der Formate in die Details-Struktur
-        const details = {
-            hex: hex,
-            rgb: rgb,
-            rgba: {
-                r: rgb.r,
-                g: rgb.g,
-                b: rgb.b,
-                a: vars.currentOpacity
-            },
-            opacity: vars.currentOpacity,
-            hsv: {
-                h: vars.currentHue,
-                s: vars.currentSaturation,
-                v: vars.currentValue
-            },
-            hsl: {
-                h: hsl.h,
-                s: hsl.s,
-                l: hsl.l,
-                a: vars.currentOpacity
-            },
-            cmyk: cmyk
-        };
 
-        $element.data('selected', details);
+        // Store color details in the jQuery element's data
+        $element.data('selected', data);
 
+        // Trigger the "update" event with the selected color details if necessary
         if (doTrigger) {
-            trigger($element, 'update', details);
+            trigger($element, 'update', data);
         }
     }
 
+    /**
+     * Draws the color preview box on the canvas.
+     * The preview box shows the currently selected color overlayed on a checkerboard background,
+     * which represents transparency.
+     *
+     * @param {jQuery} $element - The jQuery object representing the color picker element.
+     * @param {string} color - The current color in any valid CSS format (e.g., hex, rgb).
+     */
     function drawPreview($element, color) {
+        // Get the canvas' drawing context
         const context = getCanvasContext($element);
+
+        // Retrieve relevant variables for the preview box dimensions
         const vars = getVars($element);
-        const previewSize = vars.previewSize;
-        // Schachbrettmuster für Transparenz
+        const previewSize = vars.previewSize; // Size (width and height) of the preview box
+
+        // Draw a checkerboard pattern for transparency visualization
         for (let x = 0; x < previewSize; x += 10) {
             for (let y = 0; y < previewSize; y += 10) {
+                // Alternate between white (#fff) and light gray (#eee) squares
                 context.fillStyle = (x + y) % 20 === 0 ? '#fff' : '#eee';
-                context.fillRect(x, y, 10, 10);
+                context.fillRect(x, y, 10, 10); // Draw 10x10 pixel squares
             }
         }
 
+        // Overlay the selected color on top of the checkerboard pattern
         context.fillStyle = color;
-        context.fillRect(0, 0, previewSize, previewSize);
-        context.strokeStyle = '#000';
-        context.lineWidth = 1;
-        context.strokeRect(0, 0, previewSize, previewSize);
+        context.fillRect(0, 0, previewSize, previewSize); // Fill the entire preview box
     }
 
+    /**
+     * Draws the main color square on the canvas.
+     * The square represents variations of saturation (S) and value (V) for a given base hue (H),
+     * allowing users to select a specific color.
+     *
+     * @param {jQuery} $element - The jQuery object representing the color picker element.
+     * @param {number} baseHue - The base hue (H) value in degrees (0-360) used to generate the color square.
+     */
     function drawMainSquare($element, baseHue) {
+        // Get the canvas' drawing context
         const context = getCanvasContext($element);
+
+        // Retrieve relevant variables for square dimensions
         const vars = getVars($element);
-        const size = vars.size;
+        const size = vars.size;  // Size (width and height) of the main color square
         const imageData = context.createImageData(size, size);
+
+        // Iterate over each pixel row (y-axis) and column (x-axis) in the square
         for (let y = 0; y < size; y++) {
             for (let x = 0; x < size; x++) {
-                const s = x / (size - 1);
-                const v = 1 - (y / (size - 1));
+                // Calculate saturation (S) and value (V) based on position
+                const s = x / (size - 1);         // Saturation increases left to right
+                const v = 1 - (y / (size - 1));   // Value decreases top to bottom
+
+                // Convert HSV values to RGB
                 const rgb = $.bsColorPicker.utils.HSVtoRGB(baseHue, s, v);
+
+                // Calculate the index in the pixel array
                 const idx = (y * size + x) * 4;
-                imageData.data[idx] = rgb.r;
-                imageData.data[idx + 1] = rgb.g;
-                imageData.data[idx + 2] = rgb.b;
-                imageData.data[idx + 3] = 255;
+
+                // Set the R, G, B, and A channels for the current pixel
+                imageData.data[idx] = rgb.r;        // Red channel
+                imageData.data[idx + 1] = rgb.g;    // Green channel
+                imageData.data[idx + 2] = rgb.b;    // Blue channel
+                imageData.data[idx + 3] = 255;      // Alpha channel (fully opaque)
             }
         }
+
+        // Draw the color square at its designated position
         context.putImageData(imageData, vars.previewSize + vars.padding, 0);
     }
 
+    /**
+     * Draws the hue slider on the canvas.
+     * The slider represents the full 360-degree hue spectrum, transitioning smoothly through all colors.
+     *
+     * @param {jQuery} $element - The jQuery object representing the color picker element.
+     */
     function drawHueSlider($element) {
+        // Get the canvas' drawing context
         const context = getCanvasContext($element);
+
+        // Retrieve relevant variables for slider dimensions
         const vars = getVars($element);
-        const size = vars.size;
-        const sliderWidth = vars.sliderWidth;
+        const size = vars.size;                // Height of the hue slider (matches the color field size)
+        const sliderWidth = vars.sliderWidth;  // Width of the hue slider
         const imageData = context.createImageData(sliderWidth, size);
+
+        // Iterate over each horizontal pixel row in the slider
         for (let y = 0; y < size; y++) {
+            // Calculate the hue value for the current row (scaled from 0 to 360 degrees)
             const hue = (y / (size - 1)) * 360;
+
+            // Convert current hue to RGB (full saturation and value)
             const rgb = $.bsColorPicker.utils.HSVtoRGB(hue, 1, 1);
+
+            // Iterate over each pixel in the row (width of the slider)
             for (let x = 0; x < sliderWidth; x++) {
                 const idx = (y * sliderWidth + x) * 4;
-                imageData.data[idx] = rgb.r;
-                imageData.data[idx + 1] = rgb.g;
-                imageData.data[idx + 2] = rgb.b;
-                imageData.data[idx + 3] = 255;
+
+                // Set the RGB and alpha channel values for each pixel
+                imageData.data[idx] = rgb.r;        // Red channel
+                imageData.data[idx + 1] = rgb.g;    // Green channel
+                imageData.data[idx + 2] = rgb.b;    // Blue channel
+                imageData.data[idx + 3] = 255;      // Alpha channel (fully opaque)
             }
         }
+
+        // Draw the hue slider at its designated position
         context.putImageData(imageData, vars.previewSize + vars.padding + size + vars.padding, 0);
     }
 
+    /**
+     * Draws the opacity slider on the canvas.
+     * The slider displays a gradient from fully opaque to fully transparent,
+     * overlayed on a checkerboard background that indicates transparency.
+     *
+     * @param {jQuery} $element - The jQuery object representing the color picker element.
+     */
     function drawOpacitySlider($element) {
+        // Get the canvas' drawing context
         const context = getCanvasContext($element);
+
+        // Retrieve relevant variables for slider dimensions and color values
         const vars = getVars($element);
-        const colorFieldWidthHeight = vars.size;
-        const sliderWidth = vars.sliderWidth;
+        const colorFieldWidthHeight = vars.size;  // Height of the opacity slider (matches the color field size)
+        const sliderWidth = vars.sliderWidth;    // Width of the opacity slider
         const imageData = context.createImageData(sliderWidth, colorFieldWidthHeight);
+
+        // Convert the current color to RGB format for the gradient
         const rgb = $.bsColorPicker.utils.HSVtoRGB(vars.currentHue, vars.currentSaturation, vars.currentValue);
 
-        // test
-        console.log('Drawing Opacity Slider with dimensions:');
-        console.log('Width:', vars.sliderWidth, 'Height:', vars.size);
-
-        const canvas = getCanvas($element).get(0);
-        console.log('Canvas DOM Width:', canvas.width);
-        console.log('Canvas DOM Rect:', canvas.getBoundingClientRect());
-        const xOpacity = vars.previewSize + vars.padding + vars.size + vars.padding + vars.sliderWidth + vars.padding;
-        console.log('Opacity Slider X Position:', xOpacity);
-        console.log('Preview Size: ', vars.previewSize);
-        console.log('Padding: ', vars.padding);
-        console.log('Color Picker Size: ', vars.size);
-        console.log('Slider Width: ', vars.sliderWidth);
-
-
-        // test ende
-
+        // Create a checkerboard background pattern for the transparency slider
         for (let y = 0; y < colorFieldWidthHeight; y++) {
-            const alpha = 1 - (y / (colorFieldWidthHeight - 1));
+            const alpha = 1 - (y / (colorFieldWidthHeight - 1)); // Unused variable (for next gradient steps)
             for (let x = 0; x < sliderWidth; x++) {
                 const idx = (y * sliderWidth + x) * 4;
-                // Schachbrettmuster für Transparenz mit 5x5 Pixel Kacheln
+                // Create a 5x5 pixel checkerboard pattern
                 const isCheckerboard = ((Math.floor(y / 5) + Math.floor(x / 5)) % 2 === 0);
-                const baseColor = isCheckerboard ? 255 : 220;
+                const baseColor = isCheckerboard ? 255 : 220; // Light/dark squares for the checkerboard
 
+                // Define the background color (R, G, B)
                 imageData.data[idx] = baseColor;
                 imageData.data[idx + 1] = baseColor;
                 imageData.data[idx + 2] = baseColor;
-                imageData.data[idx + 3] = 255;
+                imageData.data[idx + 3] = 255; // Full alpha for the checkerboard
             }
         }
+
+        // Draw the checkerboard background
         context.putImageData(imageData, vars.previewSize + vars.padding + colorFieldWidthHeight + vars.padding + sliderWidth + vars.padding, 0);
 
-        // Zeichne den Farbverlauf darüber
+        // Overlay the gradient for the opacity
         context.save();
-        context.globalCompositeOperation = 'source-over';
+        context.globalCompositeOperation = 'source-over'; // Draw over the existing background
         const gradient = context.createLinearGradient(0, 0, 0, colorFieldWidthHeight);
-        gradient.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},1)`);
-        gradient.addColorStop(1, `rgba(${rgb.r},${rgb.g},${rgb.b},0)`);
+        gradient.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},1)`); // Fully opaque at the top
+        gradient.addColorStop(1, `rgba(${rgb.r},${rgb.g},${rgb.b},0)`); // Fully transparent at the bottom
+
+        // Draw the gradient over the slider area
         context.fillStyle = gradient;
-        console.log(vars.previewSize + vars.padding + colorFieldWidthHeight + vars.padding + sliderWidth + vars.padding, sliderWidth, colorFieldWidthHeight);
         context.fillRect(vars.previewSize + vars.padding + colorFieldWidthHeight + vars.padding + sliderWidth + vars.padding, 0, sliderWidth, colorFieldWidthHeight);
-        context.restore();
+
+        context.restore(); // Restore the context to its previous state
     }
 
-    function drawMarker($element, x, y, isHueSlider = false) {
+    /**
+     * Draws a marker on the canvas to indicate the selected position.
+     * Used for color sliders and the main color area.
+     *
+     * @param {jQuery} $element - The jQuery object representing the color picker element.
+     * @param {number} x - The x-coordinate for the marker's position.
+     * @param {number} y - The y-coordinate for the marker's position.
+     * @param {boolean} [isSlider=false] - Whether the marker is being drawn on a slider (hue/opacity) or the main color area.
+     */
+    function drawMarker($element, x, y, isSlider = false) {
+        // Get the canvas' drawing context
         const context = getCanvasContext($element);
-        const vars = getVars($element);
-        const previewSize = vars.previewSize;
-        const size = vars.size;
-        const padding = vars.padding;
-        const sliderWidth = vars.sliderWidth;
-        const totalWidth = calcTotalWidth($element);
 
-        x = Math.max(previewSize + padding + (isHueSlider ? size + padding + sliderWidth / 2 : 6),
-            Math.min(x, previewSize + padding + (isHueSlider ? totalWidth - 6 : size - 6)));
+        // Retrieve relevant variables for drawing boundaries
+        const vars = getVars($element);
+        const previewSize = vars.previewSize;  // Size of the preview box
+        const size = vars.size;                // Size of the main color area
+        const padding = vars.padding;          // Padding between elements
+        const sliderWidth = vars.sliderWidth;  // Width of the hue/opacity sliders
+        const totalWidth = calcTotalWidth($element); // Total width of the color picker
+
+        // Clamp the x-coordinate within valid bounds for the marker
+        x = Math.max(previewSize + padding + (isSlider ? size + padding + sliderWidth / 2 : 6), Math.min(x, previewSize + padding + (isSlider ? totalWidth - 6 : size - 6)));
+
+        // Clamp the y-coordinate within valid bounds for the marker
         y = Math.max(6, Math.min(y, size - 6));
 
+        // Outer circle: Draw a white border
         context.beginPath();
         context.arc(x, y, 6, 0, 2 * Math.PI);
         context.strokeStyle = 'white';
         context.lineWidth = 2;
         context.stroke();
+
+        // Inner circle: Draw a black border
         context.beginPath();
         context.arc(x, y, 5, 0, 2 * Math.PI);
         context.strokeStyle = 'black';
@@ -846,264 +1736,377 @@
         context.stroke();
     }
 
+    /**
+     * Determines which section of the color picker was clicked based on the horizontal position.
+     * Sections include: "color" (the main color area), "hue" (the hue slider), and "opacity" (the opacity slider).
+     *
+     * @param {jQuery} $element - The jQuery object representing the color picker element.
+     * @param {number} x - The x-coordinate of the user's click relative to the element.
+     * @returns {string|null} - Returns the clicked area as a string ("color", "hue", or "opacity")
+     *                          or `null` if the click was outside the defined areas.
+     */
     function getClickedArea($element, x) {
+        // Retrieve relevant variables for calculating the areas
         const vars = getVars($element);
-        const previewSize = vars.previewSize;
-        const padding = vars.padding;
-        const size = vars.size;
-        const sliderWidth = vars.sliderWidth;
-        const totalWidth = calcTotalWidth($element);
 
+        // Dimensions of the color picker sections
+        const previewSize = vars.previewSize; // Size of the preview box
+        const padding = vars.padding;        // Padding between elements
+        const size = vars.size;              // Size of the main color area
+        const sliderWidth = vars.sliderWidth; // Width of the hue and opacity sliders
+        const totalWidth = calcTotalWidth($element); // Total width of the color picker
+
+        // Check if the click is within the "color area" (main color picker)
         if (x >= previewSize + padding && x < previewSize + padding + size) {
             return 'color';
         }
+
+        // Check if the click is within the "hue slider" area
         if (x >= previewSize + padding + size + padding && x < previewSize + padding + size + padding + sliderWidth) {
             return 'hue';
         }
+
+        // Check if the click is within the "opacity slider" area
         if (x >= previewSize + padding + size + padding + sliderWidth + padding && x < totalWidth) {
             return 'opacity';
         }
+
+        // Return null if click is outside of any defined area
         return null;
     }
 
+    /**
+     * Handles the user's interaction with the main color selection area (color area).
+     * Calculates the saturation (s) and brightness (value, v) based on the click position in the color area
+     * and updates the corresponding color picker variables and UI.
+     *
+     * @param {jQuery} $element - The jQuery object representing the color picker element.
+     * @param {Object} pos - An object containing the click position with the following properties:
+     *    @property {number} pos.x - The x-coordinate of the user's click relative to the element.
+     *    @property {number} pos.y - The y-coordinate of the user's click relative to the element.
+     */
     function handleColorAreaClick($element, pos) {
-        // HIER: Debug-Ausgabe hinzufügen
-        console.log('Color click raw position:', pos);
+        const settings = getSettings($element);
+        if (settings.debug) {
+            // Debug output: Log raw position of the color area click
+            log('Color click raw position:', pos);
+        }
+
+        // Retrieve variables (e.g., settings and state) of the color picker element
         const vars = getVars($element);
+
+        // Get the size of the preview area (e.g., the small color preview box in the picker)
         const previewSize = vars.previewSize;
+
+        // Retrieve padding between the preview box and the color selection area
         const padding = vars.padding;
+
+        // Calculate the horizontal position of the click adjusted by preview size and padding
         const colorAreaX = pos.x - (previewSize + padding);
+
+        // Get the total size (width/height) of the color area
         const size = vars.size;
+
+        // Use the raw vertical position as the relative Y value
         const relativeY = pos.y;
 
-        // HIER: Debug-Ausgabe der berechneten Position
-        log('Color click calculated position:', {
-            colorAreaX,
-            relativeY,
-            previewSize,
-            padding
-        });
+        if (settings.debug) {
+            // Debug output: Log calculated click position in the color area
+            log('Color click calculated position:', {
+                colorAreaX, relativeY, previewSize, padding
+            });
+        }
 
+        // Calculate the saturation (s) based on the horizontal click position
+        // Clamp the value to ensure it stays between 0 and 1
         const s = Math.max(0, Math.min(1, colorAreaX / size));
+
+        // Calculate the brightness (value, v) based on the inverted vertical click position
+        // Clamp the value to ensure it stays between 0 and 1
         const v = Math.max(0, Math.min(1, 1 - (relativeY / size)));
 
+        // Update the saturation variable in the color picker element
         setVar($element, 'currentSaturation', s);
+
+        // Update the brightness (value) variable in the color picker element
         setVar($element, 'currentValue', v);
+
+        // Update the color picker UI with the new saturation and value
         updateColor($element);
     }
 
+    /**
+     * Handles the behavior when the user interacts with the hue slider (e.g., clicks or drags).
+     * It calculates and sets the new hue value (in degrees) based on the vertical click position
+     * and updates the UI to reflect the changes.
+     *
+     * @param {jQuery} $element - The jQuery object representing the color picker element.
+     * @param {Object} pos - An object containing the click position with the following properties:
+     *    @property {number} pos.y - The y-coordinate of the user's click relative to the element.
+     *    @property {number} pos.x - The x-coordinate of the user's click relative to the element.
+     */
     function handleHueClick($element, pos) {
+
+        // Retrieve variables (e.g., current settings and state) associated with the specified color picker element ($element).
         const vars = getVars($element);
+
+        // Get the size of the hue slider or relevant UI component (height of the hue selection area).
         const size = vars.size;
+
+        // Ensure the y-coordinate (vertical position) is within the valid range [0, size-1].
+        // If the position is less than 0, set it to 0; if it exceeds the maximum, set it to size - 1.
         const relativeY = Math.max(0, Math.min(size - 1, pos.y));
+
+        // Calculate the new hue value in degrees (0-360) based on the vertical position (relativeY).
+        // The hue value is linearly mapped from the position within the slider area.
         const currentHue = (relativeY / (size - 1)) * 360;
-        setVar($element, 'currentHue', currentHue)
+
+        // Update the 'currentHue' variable for the specified element with the newly calculated hue value.
+        setVar($element, 'currentHue', currentHue);
+
+        // Trigger a color update in the UI to reflect the changes in the hue.
         updateColor($element);
     }
 
+    /**
+     * Handles the behavior when the user interacts with the opacity slider (e.g., clicks or drags).
+     * It calculates and sets the new opacity value based on the vertical click position
+     * and updates the UI to reflect the changes.
+     *
+     * @param {jQuery} $element - The jQuery object representing the color picker element.
+     * @param {Object} pos - An object containing the click position with the following properties:
+     *    @property {number} pos.y - The y-coordinate of the user's click relative to the element.
+     */
     function handleOpacityClick($element, pos) {
+
+        // Retrieve variables (e.g., current settings and state) related to the specified color picker element ($element).
         const vars = getVars($element);
+
+        // Get the size of the opacity slider or relevant UI component (height of the area).
         const size = vars.size;
+
+        // Ensure the y-coordinate (vertical position) is within the valid range [0, size-1].
+        // If the position is below 0, set it to 0; if it exceeds the max size, set it to size - 1.
         const relativeY = Math.max(0, Math.min(size - 1, pos.y));
+
+        // Calculate the new opacity value based on the vertical position (relativeY).
+        // Lower y-coordinates correspond to higher opacity values, while higher y-coordinates result in lower opacity.
         const currentOpacity = 1 - (relativeY / (size - 1));
-        setVar($element, 'currentOpacity', currentOpacity)
+
+        // Update the 'currentOpacity' variable for the specified element with the newly calculated opacity value.
+        setVar($element, 'currentOpacity', parseFloat(currentOpacity.toFixed(2)));
+
+        // Trigger a color update in the UI to reflect the changes in the opacity.
         updateColor($element);
     }
 
+    /**
+     * Updates all input fields displayed in the dropdown menu of the color picker
+     * with the corresponding color values converted into various formats (hex, rgba, hsv, hsl, cmyk).
+     *
+     * @param {jQuery} $element - The jQuery object of the color picker element whose inputs should be updated.
+     * @param {Object} rgb - An object containing RGB color values with the following properties:
+     *    @property {number} r - The red component of the color (0-255).
+     *    @property {number} g - The green component of the color (0-255).
+     *    @property {number} b - The blue component of the color (0-255).
+     */
     function updateAllInputs($element, rgb) {
+
+        // Get the dropdown menu associated with the specified color picker element ($element).
         const $dropdown = getDropdown($element);
+
+        // Retrieve variables (e.g., the current opacity) for the specified color picker element ($element).
         const vars = getVars($element);
+
+        // Convert the provided RGB color values (r, g, b) into a HEX color string (e.g., "#RRGGBB").
         const hex = $.bsColorPicker.utils.RGBtoHex(rgb.r, rgb.g, rgb.b);
+
+        // Create an RGBA string using the RGB values and the current opacity (formatted to 2 decimal places).
         const rgbString = `${rgb.r}, ${rgb.g}, ${rgb.b}, ${vars.currentOpacity.toFixed(2)}`;
+
+        // Convert the RGB color values to the HSV color format (hue, saturation, value).
         const hsv = $.bsColorPicker.utils.RGBtoHSV(rgb.r, rgb.g, rgb.b);
+
+        // Create an HSV string using the hue (h), saturation (s), and value (v), where saturation and value are scaled to percentages.
         const hsvString = `${Math.round(hsv.h)}, ${Math.round(hsv.s * 100)}, ${Math.round(hsv.v * 100)}`;
+
+        // Convert the RGB color values to the HSL color format (hue, saturation, lightness).
         const hsl = $.bsColorPicker.utils.RGBtoHSL(rgb.r, rgb.g, rgb.b);
+
+        // Create an HSLA string using the hue (h), saturation (s), lightness (l), and current opacity,
+        // where saturation and lightness are scaled to percentages and opacity is formatted to 2 decimal places.
         const hslString = `${Math.round(hsl.h)}, ${Math.round(hsl.s * 100)}, ${Math.round(hsl.l * 100)}, ${vars.currentOpacity.toFixed(2)}`;
+
+        // Convert the RGB color values to the CMYK color format (cyan, magenta, yellow, key/black).
         const cmyk = $.bsColorPicker.utils.RGBtoCMYK(rgb.r, rgb.g, rgb.b);
+
+        // Create a CMYK string using the cyan (c), magenta (m), yellow (y), and key (k) values.
         const cmykString = `${cmyk.c}, ${cmyk.m}, ${cmyk.y}, ${cmyk.k}`;
 
+        // Object containing selectors for each input field in the dropdown menu, mapped to their corresponding data roles.
         const inputs = {
-            hex: `.${classInputs}[data-role="hex"]`,
-            rgb: `.${classInputs}[data-role="rgba"]`,
-            hsv: `.${classInputs}[data-role="hsv"]`,
-            hsl: `.${classInputs}[data-role="hsla"]`,
-            cmyk: `.${classInputs}[data-role="cmyk"]`,
-        }
+            hex: `.${classInputs}[data-role="hex"]`,  // Selector for the input field with the HEX value.
+            rgb: `.${classInputs}[data-role="rgba"]`, // Selector for the input field with the RGBA value.
+            hsv: `.${classInputs}[data-role="hsv"]`,  // Selector for the input field with the HSV value.
+            hsl: `.${classInputs}[data-role="hsla"]`, // Selector for the input field with the HSLA value.
+            cmyk: `.${classInputs}[data-role="cmyk"]` // Selector for the input field with the CMYK value.
+        };
+
+        // Update the value of the input field for HEX format in the dropdown menu.
         $dropdown.find(inputs.hex).val(hex);
+
+        // Update the value of the input field for RGBA format in the dropdown menu.
         $dropdown.find(inputs.rgb).val(rgbString);
+
+        // Update the value of the input field for HSV format in the dropdown menu.
         $dropdown.find(inputs.hsv).val(hsvString);
+
+        // Update the value of the input field for HSLA format in the dropdown menu.
         $dropdown.find(inputs.hsl).val(hslString);
+
+        // Update the value of the input field for CMYK format in the dropdown menu.
         $dropdown.find(inputs.cmyk).val(cmykString);
     }
 
+    /**
+     * Updates the color and related properties of a given element based on the provided input.
+     * The method processes the color input value, determines its format (e.g., HEX, RGBA, HSV),
+     * converts it to the required format, and updates the relevant settings for the element.
+     *
+     * @param {object} $element - The target element whose color-related properties will be updated.
+     * @param {object} $input - The input element providing the color value and its format.
+     * @return {void} - This function does not return a value.
+     */
     function updateFromInput($element, $input) {
+        // Retrieve variables (e.g., current color values, opacity) for the given element ($element).
         const vars = getVars($element);
+
+        // Retrieve settings or configuration for the given element ($element).
+        const settings = getSettings($element);
+
+        // Get the 'data-role' attribute from the input ($input), convert it to lowercase, and assign it to sourceFormat.
         const sourceFormat = $input.attr('data-role').toLowerCase();
-        const value = $input.val()
+
+        // Get the current value of the input element ($input).
+        const value = $input.val();
+
+        // Declare a variable to store the RGB color data.
         let rgb;
+
+        // Declare a variable to store the HSV color data.
         let hsv;
-        let opacity = vars.currentOpacity; // Behalte aktuelle Opacity als Standard
+
+        // Set the initial opacity to the current opacity value stored in vars.
+        let opacity = vars.currentOpacity;
 
         try {
+            // Use a switch statement to determine the appropriate color conversion
+            // based on the source format (e.g., 'hex', 'rgba', etc.).
             switch (sourceFormat) {
+
+                // Handle the case where the color format is hexadecimal (hex).
                 case 'hex':
-                    rgb = $.bsColorPicker.utils.hexToRGB(value);
+                    // Convert the hex value to RGB format using a utility function.
+                    rgb = $.bsColorPicker.utils.hexToRGBA(value);
+
+                    // Convert the RGB values to HSV format using a utility function.
                     hsv = $.bsColorPicker.utils.RGBtoHSV(rgb.r, rgb.g, rgb.b);
                     break;
+
+                // Handle the case where the color format is RGBA.
                 case 'rgba':
+                    // Split the RGBA string into components and convert each component to a floating-point value.
                     const rgbValues = value.split(',').map(n => parseFloat(n.trim()));
+
+                    // Check if the RGBA value contains an alpha (opacity) component.
                     if (rgbValues.length >= 4) {
-                        // Wenn ein Alpha-Wert vorhanden ist
+                        // If an alpha value is present, update the opacity variable.
                         opacity = rgbValues[3];
+
+                        // Create an RGB object using the first three components (r, g, b).
                         rgb = {r: rgbValues[0], g: rgbValues[1], b: rgbValues[2]};
                     } else {
+                        // If no alpha (opacity) value is provided, only create an RGB object.
                         rgb = {r: rgbValues[0], g: rgbValues[1], b: rgbValues[2]};
                     }
+
+                    // Convert the RGB values to HSV format using a utility function.
                     hsv = $.bsColorPicker.utils.RGBtoHSV(rgb.r, rgb.g, rgb.b);
                     break;
+
+                // Handle the case where the color format is HSV.
                 case 'hsv':
+                    // Split the HSV string into components, convert them to numbers, and destructure into h, s, and v variables.
                     const [h, s, v] = value.split(',').map(n => parseFloat(n.trim()));
+
+                    // Create an HSV object, and normalize saturation (s) and value (v) as percentages (divide by 100).
                     hsv = {h, s: s / 100, v: v / 100};
+
+                    // Convert the HSV values to RGB format using a utility function.
                     rgb = $.bsColorPicker.utils.HSVtoRGB(h, s / 100, v / 100);
                     break;
+
+                // Handle the case where the color format is CMYK.
                 case 'cmyk':
+                    // Split the CMYK string into components, convert them to numbers, and destructure into c, m, y, and k variables.
                     const [c, m, y, k] = value.split(',').map(n => parseFloat(n.trim()));
+
+                    // Create a CMYK object using the parsed values.
                     const cmyk = {c, m, y, k};
+
+                    // Convert the CMYK values to RGB format using a utility function.
                     rgb = $.bsColorPicker.utils.cmykToRGB(cmyk);
+
+                    // Convert the RGB values to HSV format using a utility function.
                     hsv = $.bsColorPicker.utils.RGBtoHSV(rgb.r, rgb.g, rgb.b);
                     break;
+
+                // Handle the case where the color format is HSLA.
                 case 'hsla':
+                    // Split the HSLA string into components, convert them to numbers, and destructure into hh, ss, l, and a variables.
                     const [hh, ss, l, a] = value.split(',').map(n => parseFloat(n.trim()));
+
+                    // Create an HSL object, and normalize saturation (ss) and lightness (l) as percentages (divide by 100).
                     const hsl = {h: hh, s: ss / 100, l: l / 100};
+
+                    // Check if an alpha (opacity) value is provided.
                     if (!isNaN(a)) {
-                        opacity = a; // Setze opacity wenn ein Alpha-Wert angegeben wurde
+                        // If valid, update the opacity variable.
+                        opacity = a;
                     }
+
+                    // Convert the HSL values to RGB format using a utility function.
                     rgb = $.bsColorPicker.utils.hslToRGB(hsl);
+
+                    // Convert the RGB values to HSV format using a utility function.
                     hsv = $.bsColorPicker.utils.RGBtoHSV(rgb.r, rgb.g, rgb.b);
                     break;
             }
-            setVar($element, 'currentOpacity', opacity);
+
+            // Update the 'currentOpacity' variable for the element ($element) with the final opacity value.
+            setVar($element, 'currentOpacity', parseFloat(opacity.toFixed(2)));
+
+            // Update the 'currentHue' variable for the element ($element) with the hue value from the HSV object.
             setVar($element, 'currentHue', hsv.h);
+
+            // Update the 'currentSaturation' variable for the element ($element) with the saturation value from the HSV object.
             setVar($element, 'currentSaturation', hsv.s);
+
+            // Update the 'currentValue' variable for the element ($element) with the value (brightness) from the HSV object.
             setVar($element, 'currentValue', hsv.v);
+
+            // Apply the updated color settings (e.g., update the UI to reflect the new color).
             updateColor($element);
+
         } catch (e) {
-            console.error('Ungültiges Format:', e);
+            // If an error occurs during the try block, catch the exception and handle it here.
+            // Check if the debug mode is enabled in the settings.
+            if (settings.debug) {
+                // Log the error message to the console for debugging purposes.
+                log('Invalid format:', e);
+            }
         }
     }
 
-    function updateByValue($element, initialColor) {
-        const color = convertColorFormats(initialColor);
-        if (color) {
-            setVar($element, 'currentOpacity', color.alpha);
-            setVar($element, 'currentHue', color.hsv.h);
-            setVar($element, 'currentSaturation', color.hsv.s);
-            setVar($element, 'currentValue', color.hsv.v);
-            updateColor($element);
-            updateAllInputs($element, color.rgb);
-            updateButtonColor($element, initialColor);
-        }
-    }
-
-    function convertColorFormats(customColor) {
-        try {
-            let rgb = null;
-            let hsv = null;
-            let hsl = null;
-            let alpha = 1;
-
-            if (typeof customColor === 'string') {
-                if (customColor.startsWith('#')) {
-                    // HEX Format - prüfen ob 8-stellig (mit Alpha)
-                    if (customColor.length === 9) { // #RRGGBBAA
-                        const alphaHex = customColor.slice(7);
-                        alpha = parseInt(alphaHex, 16) / 255;
-                        rgb = $.bsColorPicker.utils.hexToRGB(customColor.slice(0, 7));
-                    } else {
-                        rgb = $.bsColorPicker.utils.hexToRGB(customColor);
-                    }
-                } else if (customColor.includes(',')) {
-                    // Prüfe auf rgba Format
-                    const rgbaMatch = customColor.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,?\s*([0-9.]+)?\s*\)/);
-                    if (rgbaMatch) {
-                        rgb = {
-                            r: parseInt(rgbaMatch[1]),
-                            g: parseInt(rgbaMatch[2]),
-                            b: parseInt(rgbaMatch[3])
-                        };
-                        alpha = rgbaMatch[4] ? parseFloat(rgbaMatch[4]) : 1;
-                    } else {
-                        // Prüfe auf hsla Format
-                        const hslaMatch = customColor.match(/hsla?\(\s*(\d+)\s*,\s*(\d+)%\s*,\s*(\d+)%\s*,?\s*([0-9.]+)?\s*\)/);
-                        if (hslaMatch) {
-                            hsl = {
-                                h: parseFloat(hslaMatch[1]),
-                                s: parseFloat(hslaMatch[2]) / 100,
-                                l: parseFloat(hslaMatch[3]) / 100
-                            };
-                            alpha = hslaMatch[4] ? parseFloat(hslaMatch[4]) : 1;
-                        }
-                    }
-                } else {
-                    // Benannte Farbe
-                    const temp = document.createElement('div');
-                    temp.style.color = customColor;
-                    document.body.appendChild(temp);
-                    const computedColor = window.getComputedStyle(temp).color;
-                    document.body.removeChild(temp);
-
-                    // Prüfe auch hier auf rgba Format im computed Style
-                    const match = computedColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([0-9.]+))?\)/);
-                    if (match) {
-                        rgb = {
-                            r: parseInt(match[1]),
-                            g: parseInt(match[2]),
-                            b: parseInt(match[3])
-                        };
-                        if (match[4]) {
-                            alpha = parseFloat(match[4]);
-                        }
-                    }
-                }
-            }
-
-            // Konvertiere RGB zu HSV, falls noch nicht vorhanden
-            if (rgb && !hsv) {
-                hsv = $.bsColorPicker.utils.RGBtoHSV(rgb.r, rgb.g, rgb.b);
-
-            }
-
-            // Konvertiere HSV zu RGB, falls nur HSV vorhanden ist
-            if (hsv && !rgb) {
-                rgb = $.bsColorPicker.utils.HSVtoRGB(hsv.h, hsv.s, hsv.v);
-            }
-
-            // Konvertiere RGB zu HSL, falls noch nicht vorhanden
-            if (rgb && !hsl) {
-                hsl = $.bsColorPicker.utils.RGBtoHSL(rgb.r, rgb.g, rgb.b);
-            }
-
-            // CMYK-Konvertierung (falls RGB verfügbar)
-            const cmyk = rgb ? $.bsColorPicker.utils.RGBtoCMYK(rgb.r, rgb.g, rgb.b) : null;
-
-            // Generiere das HEX-Format, falls RGB existiert
-            const hex = rgb
-                ? $.bsColorPicker.utils.RGBtoHex(rgb.r, rgb.g, rgb.b, alpha)
-                : null;
-
-            // Rückgabe aller Formate
-            return {
-                hex: hex,
-                rgb: rgb ? {...rgb, a: alpha} : null,
-                hsv: hsv ? {...hsv, a: alpha} : null,
-                hsl: hsl ? {...hsl, a: alpha} : null,
-                cmyk: cmyk,
-                alpha: alpha
-            };
-        } catch (e) {
-            console.error('Invalid color format:', e);
-            return null;
-        }
-    }
-
+    $('[data-bs-toggle="color"],[data-toggle="color"]').bsColorPicker();
 }(jQuery))
