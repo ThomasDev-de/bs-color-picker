@@ -1,7 +1,9 @@
 # Bootstrap Color Picker Plugin
 
-![License](https://img.shields.io/badge/license-Proprietary-blue)
+![License](https://img.shields.io/badge/license-Mit-blue)
 ![Version](https://img.shields.io/badge/version-1.0.0-green)
+![Version](https://img.shields.io/badge/bootstrap-4|5-orange)
+![Version](https://img.shields.io/badge/date-2025/04/24-yellow)
 
 A feature-rich and customizable color picker jQuery plugin that seamlessly integrates with Bootstrap 4 or 5.  
 This plugin provides an intuitive interface for color selection with support for multiple color formats and
@@ -22,7 +24,7 @@ transparency.
 ## Dependencies
 
 - jQuery 3.x
-- Bootstrap 5.x
+- Bootstrap 4.x | 5.x
 - Bootstrap Icons
 
 ## Installation
@@ -38,6 +40,9 @@ transparency.
 
 <!-- jQuery -->
 <script src="path/to/jquery.min.js"></script>
+
+<!-- Bootstrap JS -->
+<script src="path/to/bootstrap.bundle.min.js"></script>
 
 <!-- Bootstrap Color Picker -->
 <script src="path/to/bs-color-picker.js"></script>
