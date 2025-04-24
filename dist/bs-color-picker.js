@@ -1481,7 +1481,7 @@
 
         // Add control buttons (close, reset, apply) below the input fields
         const $controllContainer = $('<div>', {
-            class: 'd-flex mt-2 btn-group btn-group-sm justify-content-end align-items-center',
+            class: 'd-flex mt-2 btn-group w-100 btn-group-sm justify-content-between align-items-center',
         }).appendTo($inputsContainer);
 
         // Close button
