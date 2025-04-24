@@ -33,11 +33,12 @@
         $('form').on('submit', function (e) {
             e.preventDefault();
             alert(JSON.stringify($(e.currentTarget).serializeArray()));
-        })
+        });
 
         $.bsColorPicker.setDefaults({
             btnClass: 'btn-lg btn-outline-primary',
             btnText: 'User color',
+            btnEmptyColor: 'rgba(0,0,255,.3)',
             format: 'hex',
             debug: false
         });

@@ -42,7 +42,7 @@
         DEFAULTS: {
             btnClass: 'btn-outline-secondary',
             btnText: null,
-            emptyColor: 'rgba(0, 0, 0, 0.5)',
+            btnEmptyColor: 'rgba(0, 0, 0, 0.5)',
             format: 'rgba',
             icons: {
                 check: 'bi bi-check-lg',
@@ -1251,8 +1251,8 @@
             }
             events($element);
 
-            // Get the initial value for the color picker; use emptyColor if no value is present
-            const value = getValueFromElement($element) || settings.emptyColor;
+            // Get the initial value for the color picker; use btnEmptyColor if no value is present
+            const value = getValueFromElement($element) || settings.btnEmptyColor;
 
             if (settings.debug) {
                 log('Set initial value:', value);
@@ -1540,7 +1540,7 @@
             if (color && color.rgba) {
                 fillStyle = `rgba(${color.rgba.r}, ${color.rgba.g}, ${color.rgba.b}, ${color.rgba.a})`;
             } else {
-                fillStyle = settings.emptyColor;
+                fillStyle = settings.btnEmptyColor;
             }
 
             ctx.fillStyle = fillStyle;                  // Set the fill style to the selected color
@@ -1704,7 +1704,7 @@
 
         updateAllInputs($element, null); // Update input fields with the new color
         if (updateBtn) {
-            updateButtonColor($element, settings.emptyColor);  // Update the button's preview color
+            updateButtonColor($element, settings.btnEmptyColor);  // Update the button's preview color
         }
 
         $element.val(null); // Clear the value
@@ -1731,7 +1731,7 @@
         const vars = getVars($element);
         const previewSize = vars.previewSize; // Size (width and height) of the preview box
 
-        if (!color) {
+        if ($.bsColorPicker.utils.isValueEmpty(color)) {
             drawTransparentBackground(context, 0, 0, vars.previewSize, vars.previewSize);
         } else {
             // Draw a checkerboard pattern for transparency visualization
@@ -1744,7 +1744,7 @@
             }
 
             // Overlay the selected color on top of the checkerboard pattern
-            context.fillStyle = color ? color : settings.emptyColor;
+            context.fillStyle = color;
             context.fillRect(0, 0, previewSize, previewSize); // Fill the entire preview box
         }
     }
