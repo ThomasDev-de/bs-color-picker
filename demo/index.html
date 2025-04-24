@@ -14,12 +14,12 @@
 <form>
     <div class="form-group mb-3">
         <label>
-            <input type="text" data-bs-toggle="color" name="color" class="form-control">
+            <input type="text" data-bs-toggle="color" data-btn-text="choose your favourite color" name="color" class="form-control">
         </label>
     </div>
     <div class="form-group mb-3">
         <label>
-            <input type="text" name="color2" data-btn-class="btn-warning" class="form-control">
+            <input type="text" name="color2" data-btn-class="btn-outline-light btn-lg rounded-pill" class="form-control">
         </label>
     </div>
     <button type="submit" class="btn btn-primary mt-5">Submit</button>
@@ -38,14 +38,14 @@
         $.bsColorPicker.setDefaults({
             btnClass: 'btn-lg btn-outline-primary',
             btnText: 'User color',
-            format: 'rgba',
-            emptyColor: null,
+            format: 'hex',
             debug: false
         });
+        $('[name="color2"]').bsColorPicker();
         setTimeout(function () {
-            // $('[data-bs-toggle="color"]').bsColorPicker('updateOptions', {btnClass: C'btn-lg btn-danger'});
-            $('[name="color2"]').bsColorPicker();
-        }, 400)
+            // $('[data-bs-toggle="color"]').bsColorPicker('updateOptions', {btnClass: 'btn-danger'});
+            $('[name="color2"]').bsColorPicker('val', null);
+        }, 0)
 
     });
 </script>
