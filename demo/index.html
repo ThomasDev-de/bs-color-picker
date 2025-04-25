@@ -92,7 +92,7 @@
             let dataString = '';
             if (data) {
                 if (typeof data === 'object') {
-                    // Format object as JSON string with indentation for readability
+                    // Format an object as a JSON string with indentation for readability
                     dataString = ' => ' + JSON.stringify(data, null, 2) + '';
                 } else if (typeof data === 'string') {
                     // Append the string as is
@@ -112,7 +112,7 @@
             debug: true
         });
 
-        selectOutputFormat.on('change', function (e) {
+        selectOutputFormat.on('change', function () {
             colorPicker.bsColorPicker('updateOptions',{
                 format: $(this).val()
             });
@@ -133,7 +133,7 @@
             .on('update.bs.colorPicker', function (e, data) {
                 logEvent('update.bs.colorPicker', data.length);
             })
-            .on('all.bs.colorPicker', function (e) {
+            .on('all.bs.colorPicker', function () {
                 logEvent('all.bs.colorPicker');
             })
             .on('error.bs.colorPicker', function (e, data) {
