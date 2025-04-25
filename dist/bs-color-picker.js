@@ -49,7 +49,7 @@
                 reset: 'bi bi-arrow-clockwise',
                 close: 'bi bi-x-lg',
             },
-            debug: true
+            debug: false
         },
         utils: {
             /**
@@ -509,8 +509,7 @@
              * - cmyk: CMYK representation (e.g., {c: 0, m: 0, y: 0, k: 0})
              * - alpha: The alpha (transparency) value rounded to 2 decimal places if needed.
              */
-            convertColorFormats(customColor) {
-                const debug = true;
+            convertColorFormats(customColor, debug = false) {
                 if (debug) {
                     console.log("convertColorFormats", customColor);
                 }
@@ -683,7 +682,7 @@
                             }
                             const namedColorHex = this.colorNameToHex(customColor);
                             if (namedColorHex) {
-                                return this.convertColorFormats(namedColorHex);
+                                return this.convertColorFormats(namedColorHex, debug);
                             }
                             const temp = document.createElement("div");
                             temp.style.color = customColor;
@@ -700,7 +699,7 @@
                                 return null;
                             }
 
-                            return this.convertColorFormats(computedColor);
+                            return this.convertColorFormats(computedColor, debug);
                         }
                     }
 
@@ -768,7 +767,8 @@
     };
 
     const classDropdown = 'bs-color-picker-dropdown';
-    const submitBtnClass = 'bs-color-picker-submit';
+    const classElement = 'bs-color-picker-element';
+    const submitBtnClass = 'bs-color-picker-btn-submit';
     const classCanvas = 'bs-color-picker-canvas';
     const classInputs = 'bs-color-picker-inputs';
     const markerClass = 'bs-color-picker-marker';
@@ -778,24 +778,40 @@
 
 
     $.fn.bsColorPicker = function (optionsOrMethod, params) {
+        // Check if there are items
+        if (this.length === 0) {
+            return this; // Just return the jQuery object, but don't do any further logic
+        }
+
+        // Check if the jQuery object (`this`) contains more than one element
         if ($(this).length > 1) {
+            // If there are multiple elements, iterate over each element in the collection
             return $(this).each(function (i, el) {
-                return $(el).bsColorPicker(optionsOrMethod, params)
+                // For each element, call the bsColorPicker plugin on the individual element
+                // This ensures that the plugin is initialized for each element separately
+                return $(el).bsColorPicker(optionsOrMethod, params);
             });
         }
+
         const optionsGiven = typeof optionsOrMethod === 'object';
         const methodGiven = typeof optionsOrMethod === 'string';
 
         const $element = $(this);
         let settings;
-        if (!$element.data('initBsColorPicker')) {
+        let isInitialized = $element.data('initBsColorPicker') === true;
+        let updateOptionAgain = isInitialized && optionsGiven;
+
+        if (!isInitialized) {
+            $element.addClass(classElement);
             // immediately switch to initialized, so that a multiple call is as good as impossible
             $element.data('initBsColorPicker', true);
+            // Save the input type for recovery
             if (!$element.data('before')) {
                 $element.data('before', {
                     type: $element.attr('type')
                 });
             }
+            // Assemble the settings from the standards, the element data and the passed options
             settings = $.bsColorPicker.getDefaults();
             const dataAttributes = $element.data();
 
@@ -805,7 +821,7 @@
 
             setSettings($element, settings);
 
-            $element.data('vars', {
+            const vars = {
                 bootstrapVersion: getBootstrapVersion(),
                 size: 200, // Farbfeld
                 previewSize: 50, // Vorschau
@@ -814,8 +830,11 @@
                 currentHue: 0, // current hue value
                 currentOpacity: 1, // current opacity value
                 currentSaturation: 1, // current saturation value
-                currentValue: 1, activeControl: null // currently active control (color, hue, opacity)
-            });
+                currentValue: 1,
+                activeControl: null // currently active control (color, hue, opacity)
+            };
+
+            $element.data('vars', vars);
 
             if ($element.is('input') && $element.attr('type') !== 'hidden') {
                 $element.attr('type', 'hidden');
@@ -835,16 +854,23 @@
             settings = getSettings($element);
         }
 
-        if (methodGiven) {
+        if (updateOptionAgain) {
+            $element.data('ignoreEvents', true)
+            updateOptions($element, optionsOrMethod);
+        } else if (methodGiven) {
             switch (optionsOrMethod) {
-                case 'val':
-                    setValue($element, params, true);
+                case 'val': {
+                    setValue($element, params, true, true);
+                }
                     break;
-                case 'updateOptions':
+                case 'updateOptions': {
+                    $element.data('ignoreEvents', true)
                     updateOptions($element, params);
+                }
                     break;
-                case 'destroy':
+                case 'destroy': {
                     destroy($element, true);
+                }
                     break;
             }
         }
@@ -853,43 +879,62 @@
     };
 
     function destroy($element, makeVisible) {
-        // Hole das zugehörige Dropdown, das den Color-Picker beinhaltet
+        const settings = getSettings($element);
+        if (settings.debug) {
+            log('destroy called');
+        }
+        // Get the corresponding dropdown, which contains the color picker
         const dropdown = getDropdown($element);
 
-        console.log('Element:', $element);
-        console.log('Dropdown element:', dropdown);
-
-        // Prüfen, ob ein Dropdown existiert
+        // Check if a dropdown exists
         if (dropdown && dropdown.length > 0) {
-            console.log('Dropdown gefunden. Entferne das Element und das Dropdown.');
+            if (settings.debug) {
+                log('Dropdown found. Remove the item and the dropdown.');
+            }
 
-            // Das versteckte $element aus dem Dropdown lösen und davor platzieren
-            dropdown.before($element); // $element vor das Dropdown verschieben
-            dropdown.remove(); // Das Dropdown selbst aus dem DOM entfernen
+            // Detach the hidden $element from the drop-down and place it in front of it
+            dropdown.before($element); // Move $element in front of the dropdown
+            dropdown.remove(); // Remove the dropdown itself from the DOM
         } else {
-            console.warn('Kein Dropdown für das Element gefunden.');
+            if (settings.debug) {
+                log('No dropdown found for the item.');
+            }
         }
 
-        // Ursprüngliches Element zurücksetzen
         if (makeVisible) {
+            // Reset original item
             const before = $element.data('before');
-            $element.attr('type', before.type).show(); // Setze den Typ zurück auf 'text'
+            $element.attr('type', before.type).show(); // Reset the type
             $element.removeData('before');
+
         }
-        $element.removeData('initBsColorPicker'); // Entferne alle spezifischen Daten
+        // Remove all specific data
+        $element.removeClass(classElement);
+        $element.removeData('initBsColorPicker');
         $element.removeData('vars');
         $element.removeData('selected');
         $element.removeData('settings');
-
-        console.log('Element wurde vollständig zurückgesetzt:', $element);
+        if (settings.debug) {
+            log('Element has been completely reset:', $element);
+        }
     }
 
     function updateOptions($element, options) {
+        const settings = getSettings($element);
+        const debug = settings.debug;
+        if (debug) {
+            log('updateOptions called', options);
+        }
         if (typeof options === 'object') {
-            const settings = getSettings($element);
             const newSettings = $.extend(true, {}, $.bsColorPicker.getDefaults(), settings, options);
+            if (debug) {
+                log('New settings:', newSettings);
+            }
             destroy($element, false);
-            // $element.bsColorPicker(newSettings);
+            $element.bsColorPicker(newSettings);
+        }
+        if (debug) {
+            log('updateOptions completed');
         }
     }
 
@@ -912,6 +957,7 @@
         const returnValue = $.bsColorPicker.utils.isValueEmpty(value) ? null : value;
         if (settings.debug) {
             log('getValueFromElement returnValue =', returnValue);
+            log('getValueFromElement completed')
         }
 
         return returnValue;
@@ -939,11 +985,20 @@
      * @returns {number} The total width of the canvas.
      */
     function calcTotalWidth($element) {
+        const settings = getSettings($element);
+        if (settings.debug) {
+            log('calcTotalWidth called');
+        }
         const vars = getVars($element);
         // Total width calculation formula:
         // total = previewSize + padding + size + padding + sliderWidth + padding + sliderWidth
         // Example: 308 = 50 + 10 + 200 + 10 + 14 + 10 + 14
-        return vars.previewSize + vars.padding + vars.size + vars.padding + vars.sliderWidth + vars.padding + vars.sliderWidth;
+        const total = vars.previewSize + vars.padding + vars.size + vars.padding + vars.sliderWidth + vars.padding + vars.sliderWidth;
+        if (settings.debug) {
+            log('calcTotalWidth total =', total);
+            log('calcTotalWidth completed')
+        }
+        return total;
     }
 
     /**
@@ -955,9 +1010,12 @@
      */
     function setSettings($element, settings) {
         if (settings.debug) {
-            log('Set settings to:', settings);
+            log('setSettings called', settings);
         }
         $element.data('settings', settings);
+        if (settings.debug) {
+            log('setSettings completed');
+        }
     }
 
     /**
@@ -988,6 +1046,9 @@
             log('Set var', prop, '=', value, 'vars =', vars);
         }
         $element.data('vars', vars);
+        if (settings.debug) {
+            log('setVar completed');
+        }
     }
 
     /**
@@ -1036,10 +1097,14 @@
      * @param {jQuery} $element - The jQuery object of the color picker element.
      * @param {boolean} [closeOpenDropdown=false] - Whether to close the dropdown after resetting the color.
      */
-    function resetColor($element, closeOpenDropdown = false) {
+    function resetColor($element, closeOpenDropdown = false, triggerEvent = null) {
         const settings = getSettings($element);
+        const dropdown = getDropdown($element);
         if (settings.debug) {
-            log('resetColor called with closeDropdown =', closeOpenDropdown);
+            log('resetColor called', closeOpenDropdown);
+        }
+        if (triggerEvent) {
+            trigger($element, triggerEvent);
         }
         // Retrieve the initial color value from the element
         const value = getValueFromElement($element);
@@ -1048,20 +1113,49 @@
             log('resetColor value =', value);
         }
         // Set the element back to its initial value
-        setValue($element, value, false);
+        setValue($element, value, false, false);
 
         // Optionally close the dropdown if specified
         if (closeOpenDropdown) {
-            closeDropdown($element);
+            closeDropdown($element, dropdown);
+        }
+
+        if (settings.debug) {
+            log('resetColor completed');
         }
     }
 
-    function closeDropdown($element) {
-        const dropdown = getDropdown($element);
-        dropdown
+    function closeDropdown($element, $dropdown) {
+        trigger($element, 'hide');
+        const settings = getSettings($element);
+        if (settings.debug) {
+            log('closeDropdown called');
+        }
+
+        $dropdown
             .removeClass('show')
             .find('.dropdown-menu, .dropdown-toggle')
             .removeClass('show');
+
+        if (settings.debug) {
+            log('closeDropdown completed');
+        }
+        trigger($element, 'hidden');
+    }
+
+    /**
+     * Closes all color picker dropdown elements on the page except the specified one.
+     *
+     * @param {jQuery} $self The dropdown element to exclude from being closed.
+     * @return {void} Does not return a value.
+     */
+    function closeOtherDropdowns($self) {
+        const $dropdowns = $(document).find('.' + classDropdown).not($self);
+        $dropdowns.each(function (i, dropdown) {
+            const $dropdown = $(dropdown);
+            const $element = $dropdown.find('.' + classElement);
+            closeDropdown($element, $dropdown);
+        })
     }
 
     /**
@@ -1084,10 +1178,13 @@
             log('setColorOnElement as strings =', strings);
         }
         // Set the element's value using the RGBA format
-        setValue($element, strings.rgba, true);
+        setValue($element, strings.rgba, true, true);
 
         // Hide the dropdown after setting the value
-        closeDropdown($element);
+        closeDropdown($element, dropdown);
+        if (settings.debug) {
+            log('setColorOnElement completed');
+        }
     }
 
     /**
@@ -1098,13 +1195,23 @@
      * @param {string} [details.hex] - The HEX color representation (e.g., #rrggbb or #rrggbbaa).
      * @param {Object} [details.rgb] - The RGB representation (e.g., {r: 255, g: 255, b: 255}).
      * @param {Object} [details.rgba] - The RGBA representation (e.g., {r: 255, g: 255, b: 255, a: 0.5}).
-     * @param {Object} [details.hsl] - The HSL/HSLA representation (e.g., {h: 360, s: 1, l: 0.5, a: 0.5}).
+     * @param {Object} [details.hsl] - The HSL representation (e.g., {h: 360, s: 1, l: 0.5}).
+     * @param {Object} [details.hsla] - The HSLA representation (e.g., {h: 360, s: 1, l: 0.5, a: 0.5}).
      * @returns {Object} An object containing formatted and rounded color values or an error if no color data is available.
      */
     function formatSelectedToString(details) {
-        if (!details) return {error: "No color data available."};
+        if (!details) {
+            console.error('formatSelectedToString: No color data provided', details);
+            return {};
+        }
+        const {
+            hex,
+            rgb,
+            rgba,
+            hsl,
+            hsla,
+        } = details;
 
-        const {hex, rgb, rgba, hsl} = details;
         const result = {};
 
         // Format HEX if available
@@ -1152,14 +1259,14 @@
      * @param {jQuery} $element - The jQuery object of the color picker.
      * @param {string|null} value - The color value to set, in any supported format (e.g., HEX, RGB, HSL).
      */
-    function setValue($element, value, updateBtn = true) {
+    function setValue($element, value, triggerChange = true, updateButton = false) {
         const settings = getSettings($element);
         if (settings.debug) {
-            log('setValue called with value =', value);
+            log('setValue called', value);
         }
         if (value) {
             // Convert the input value into various color formats
-            const color = $.bsColorPicker.utils.convertColorFormats(value);
+            const color = $.bsColorPicker.utils.convertColorFormats(value, settings.debug);
             if (settings.debug) {
                 log('setValue color =', color);
             }
@@ -1172,34 +1279,13 @@
                 setVar($element, 'currentValue', color.hsv.v);
 
                 // Update the UI components
-                updateColor($element);               // Refresh the canvas (color representation)
-                updateAllInputs($element, color.rgba); // Update input fields with the new color
-                updateButtonColor($element, value);  // Update the button's preview color
+                updateColor($element, false);               // Refresh the canvas (color representation)
+                updateAllInputs($element, color); // Update input fields with the new color
+                if (updateButton) {
+                    updateButtonColor($element, value);  // Update the button's preview color
+                }
 
-                const colorSet = $element.data('selected');
-                // Convert the selected color to a string format based on settings
-                const strings = formatSelectedToString(colorSet);
-                if (settings.debug) {
-                    log('setValue strings =', strings);
-                }
-                let newValue;
-                switch (settings.format) {
-                    case 'hex':
-                        newValue = strings.hex;// Set the value as HEX
-                        break;
-                    case 'rgb':
-                        newValue = strings.rgb; // Set the value as RGB
-                        break;
-                    case 'hsl':
-                        newValue = strings.hsl; // Set the value as HSL
-                        break;
-                    case 'hsla':
-                        newValue = strings.hsla; // Set the value as HSLA
-                        break;
-                    default:
-                        newValue = strings.rgba; // Set the value as RGBA
-                        break;
-                }
+                let newValue = getOutputFormat($element);
                 if (settings.debug) {
                     log(`setValue newValue to format (${settings.format})  =`, newValue);
                 }
@@ -1209,11 +1295,18 @@
                     log('setValue color is null');
                 }
                 // Handle invalid color input
-                trigger($element, 'error', 'Invalid color format');
-                updateColorToNull($element, updateBtn, updateBtn);
+                trigger($element, 'error', 'Invalid color format, set color to null');
+                updateColorToNull($element, triggerChange, updateButton);
             }
         } else {
-            updateColorToNull($element, updateBtn, updateBtn);
+            updateColorToNull($element, triggerChange, updateButton);
+        }
+
+        if (triggerChange) {
+            trigger($element, 'change', value);
+        }
+        if (settings.debug) {
+            log('setValue completed');
         }
     }
 
@@ -1229,7 +1322,7 @@
 
         // Log initialization if debugging is enabled
         if (settings.debug) {
-            log('Start init element with settings:', settings);
+            log('init called');
         }
 
         return new Promise((resolve) => {
@@ -1237,18 +1330,21 @@
             if (settings.debug) {
                 log('Hide original element');
             }
+
             $element.hide();
 
             // Build the dropdown UI for the color picker
             if (settings.debug) {
                 log('Build dropdown');
             }
+
             buildDropdown($element);
 
             // Bind event listeners for interactions
             if (settings.debug) {
                 log('Bind event listeners');
             }
+
             events($element);
 
             // Get the initial value for the color picker; use btnEmptyColor if no value is present
@@ -1258,11 +1354,11 @@
                 log('Set initial value:', value);
             }
             // Set the initial value of the color picker
-            setValue($element, value, true);
+            setValue($element, value, false, true);
 
             // Mark the element as initialized
             if (settings.debug) {
-                log('Mark element as initialized');
+                log('init completed');
             }
             // Resolve the promise indicating the initialization is complete
             resolve();
@@ -1278,23 +1374,27 @@
     function events($element) {
         const settings = getSettings($element);
         if (settings.debug) {
-            log('init events');
+            log('events called');
         }
 
         // Get the dropdown associated with the element
         const dropdown = getDropdown($element);
 
         // Listen for `update` events on the color picker element
-        $element.on('update.bs.colorPicker', function (e, data) {
-            const settings = getSettings($element);
-            if (settings.debug) {
-                log('update event triggered', data);
-            }
-            updateAllInputs($element, data); // Update all input fields with the new color values
-        });
+        // $element.on('update.bs.colorPicker', function (e, data) {
+        //     const settings = getSettings($element);
+        //     if (settings.debug) {
+        //         log('update event triggered', data);
+        //     }
+        //     updateAllInputs($element, data); // Update all input fields with the new color values
+        // });
 
         // Bind event listeners to the dropdown
         dropdown
+            .on('click', '.' + submitBtnClass, function (e) {
+                e.preventDefault();
+                setColorOnElement($element); // Apply the selected color
+            })
             // Handle changes in input fields
             .on('keydown', '.' + classInputs, function (e) {
                 if (e.key === "Enter" || e.keyCode === 13) {
@@ -1315,23 +1415,32 @@
                         dropdown.removeData('isInsideCanvas');
                     }
                     e.preventDefault();
+                    return;
                 }
+                trigger($element, 'hide');
             })
             .on('show.bs.dropdown', function (e) {
-                $('.' + classDropdown + ' .dropdown-toggle.show').not($(e.currentTarget)).dropdown('hide');
+                if (settings.debug) {
+                    log('Dropdown show, close other dropdowns');
+                }
+                trigger($element, 'show');
+                const dropdown = $(e.currentTarget);
+                closeOtherDropdowns(dropdown);
             })
             .on('shown.bs.dropdown', function () {
                 if (settings.debug) {
                     log('Dropdown is shown, initializing canvas');
                 }
+                trigger($element, 'shown');
+                const currentElementValue = getValueFromElement($element);
                 const vars = getVars($element);
                 const canvas = getCanvas($element).get(0);
                 canvas.width = calcTotalWidth($element); // Set canvas width dynamically
                 canvas.height = vars.size; // Set canvas height dynamically
-                if (!$.bsColorPicker.utils.isValueEmpty($element.val())) {
+                if (!$.bsColorPicker.utils.isValueEmpty(currentElementValue)) {
                     updateColor($element, false); // Initialize and draw the color canvas
                 } else {
-                    updateColorToNull($element);
+                    updateColorToNull($element, false, false);
                 }
             })
             .on('mousedown', '.' + classCanvas, function (e) {
@@ -1427,20 +1536,24 @@
         $element.appendTo(dropdown);
 
         // Define and append the toggling button with optional text and canvas for color preview
-        let btnText = settings.btnText ? `<span class="mx-1">${settings.btnText}</span>` : '';
-        const button = $('<button>', {
-            html: [
-                '<div class="d-flex align-items-center">',
-                '<div style="width:20px; height:20px; position:relative;" class="mr-1 me-1 rounded-circle border">',
-                '<canvas width="20" height="20" style="position:absolute; border-radius:50%; top:0; left:0;"></canvas>',
-                '</div>', btnText, '</div>',].join(''),
-            type: 'button',
-            class: `btn dropdown-toggle ${settings.btnClass} d-flex align-items-center`,
-            'data-toggle': 'dropdown',
-            'data-bs-toggle': 'dropdown',
-            'data-bs-auto-close': 'false',
-            'aria-expanded': false,
-        }).appendTo(dropdown);
+        let btnText = settings.btnText ? `<div class="mx-1 text-wrap text-start" style="flex: 1; min-width: 0;">${settings.btnText}</div>` : '';
+        const button = $('<button>',
+            {
+                html: [
+                    '<div class="d-flex align-items-center" style="width: 100%; flex-wrap: nowrap;">',
+                    '<div style="width:20px; height:20px; position:relative; flex-shrink: 0;" class="mr-1 me-1 rounded-circle shadow">',
+                    '<canvas width="20" height="20" style="position:absolute; border-radius:50%; top:0; left:0;"></canvas>',
+                    '</div>',
+                    btnText,
+                    '</div>'
+                ].join(''),
+                type: 'button',
+                class: `btn dropdown-toggle ${settings.btnClass} d-flex align-items-center`,
+                'data-toggle': 'dropdown',
+                'data-bs-toggle': 'dropdown',
+                'data-bs-auto-close': 'false',
+                'aria-expanded': false,
+            }).appendTo(dropdown);
 
         // Create the dropdown menu and append it
         const dropdownMenu = $('<div>', {
@@ -1487,22 +1600,22 @@
         // Close button
         $('<button>', {
             html: `<i class="${settings.icons.close}"></i>`, type: 'button', class: 'btn btn-link', click: function () {
-                resetColor($element, true); // Reset and close
+                resetColor($element, true, 'cancel'); // Reset and close
             },
         }).appendTo($controllContainer);
 
         // Reset button
         $('<button>', {
             html: `<i class="${settings.icons.reset}"></i>`, type: 'button', class: 'btn btn-link', click: function () {
-                resetColor($element); // Only reset
+                resetColor($element, false, 'reset'); // Only reset
             },
         }).appendTo($controllContainer);
 
         // Apply button
         $('<button>', {
-            html: `<i class="${settings.icons.check}"></i>`, type: 'button', class: 'btn btn-link', click: function () {
-                setColorOnElement($element); // Apply the selected color
-            },
+            html: `<i class="${settings.icons.check}"></i>`,
+            type: 'button',
+            class: 'btn btn-link ' + submitBtnClass
         }).appendTo($controllContainer);
     }
 
@@ -1535,7 +1648,7 @@
             }
 
             // 2. Draw the main color overlay based on the selected color value
-            const color = $.bsColorPicker.utils.convertColorFormats(colorValue); // Convert the color value into usable formats
+            const color = $.bsColorPicker.utils.convertColorFormats(colorValue, settings.debug); // Convert the color value into usable formats
             let fillStyle;
             if (color && color.rgba) {
                 fillStyle = `rgba(${color.rgba.r}, ${color.rgba.g}, ${color.rgba.b}, ${color.rgba.a})`;
@@ -1610,7 +1723,7 @@
 
         if (event !== 'all') {
             // Trigger the "all" event directly (generic event for all actions)
-            $element.trigger('all.bs.colorPicker', event, ...p);
+            $element.trigger('all.bs.colorPicker');
 
             // Trigger the specific event directly (e.g., "update.bs.colorPicker")
             $element.trigger(`${event}.bs.colorPicker`, ...p);
@@ -1635,6 +1748,7 @@
 
         // Retrieve relevant variables
         const vars = getVars($element);
+        const settings = getSettings($element);
 
         // Clear the entire canvas
         context.clearRect(0, 0, totalWidth, vars.size);
@@ -1661,8 +1775,7 @@
         drawMarker($element, vars.previewSize + vars.padding + vars.size + vars.padding + vars.sliderWidth + vars.padding + vars.sliderWidth / 2, opacityY, true);                                               // Marker for opacity slider
 
         // Calculate additional color formats
-        const data = $.bsColorPicker.utils.convertColorFormats(`rgba(${rgb.r},${rgb.g},${rgb.b},${vars.currentOpacity})`)
-
+        const data = $.bsColorPicker.utils.convertColorFormats(`rgba(${rgb.r},${rgb.g},${rgb.b},${vars.currentOpacity})`, settings.debug)
 
         // Store color details in the jQuery element's data
         $element.data('selected', data);
@@ -1671,6 +1784,8 @@
         if (doTrigger) {
             trigger($element, 'update', data);
         }
+
+        updateAllInputs($element, data); // Update all input fields with the new color values
     }
 
     function updateColorToNull($element, doTrigger = true, updateBtn = false) {
@@ -1712,6 +1827,42 @@
         if (doTrigger) {
             trigger($element, 'update', null);
         }
+        updateAllInputs($element, null); // Update all input fields with the new color values
+    }
+
+    function getOutputFormat($element) {
+        const selectedColorSet = $element.data('selected');
+        if (!selectedColorSet) {
+            return null;
+        }
+        const settings = getSettings($element);
+        // Convert the selected color to a string format based on settings
+        const strings = formatSelectedToString(selectedColorSet);
+        if (settings.debug) {
+            log('setValue strings =', strings);
+        }
+        let newValue;
+        switch (settings.format) {
+            case 'hex':
+                newValue = strings.hex;// Set the value as HEX
+                break;
+            case 'rgb':
+                newValue = strings.rgb; // Set the value as RGB
+                break;
+            case 'rgba':
+                newValue = strings.rgba; // Set the value as RGB
+                break;
+            case 'hsl':
+                newValue = strings.hsl; // Set the value as HSL
+                break;
+            case 'hsla':
+                newValue = strings.hsla; // Set the value as HSLA
+                break;
+            default:
+                newValue = null; // Set the value as RGBA
+                break;
+        }
+        return newValue;
     }
 
     /**
@@ -2050,7 +2201,7 @@
         setVar($element, 'currentValue', v);
 
         // Update the color picker UI with the new saturation and value
-        updateColor($element);
+        updateColor($element, true);
     }
 
     /**
@@ -2083,7 +2234,7 @@
         setVar($element, 'currentHue', currentHue);
 
         // Trigger a color update in the UI to reflect the changes in the hue.
-        updateColor($element);
+        updateColor($element, true);
     }
 
     /**
@@ -2115,7 +2266,7 @@
         setVar($element, 'currentOpacity', parseFloat(currentOpacity.toFixed(2)));
 
         // Trigger a color update in the UI to reflect the changes in the opacity.
-        updateColor($element);
+        updateColor($element, true);
     }
 
     /**
@@ -2344,7 +2495,7 @@
             setVar($element, 'currentValue', hsv.v);
 
             // Apply the updated color settings (e.g., update the UI to reflect the new color).
-            updateColor($element);
+            updateColor($element, true);
 
         } catch (e) {
             // If an error occurs during the try block, catch the exception and handle it here.

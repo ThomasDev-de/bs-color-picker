@@ -7,23 +7,50 @@
     <title>Bootstrap Color Picker</title>
     <link href="../vendor/twbs/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="../vendor/twbs/bootstrap-icons/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        #eventLog {
+            max-height: 50vh;
+            overflow-y: auto;
+        }
+    </style>
 </head>
 
 <body class="container py-5">
-<div id="colorPicker"></div>
-<form>
-    <div class="form-group mb-3">
-        <label>
-            <input type="text" data-bs-toggle="color" data-btn-text="choose your favourite color" name="color" class="form-control">
-        </label>
+<div class="d-flex">
+    <div class="flex-shrink-0 p-3">
+        <div class="card rounded-5" style="width: 300px;">
+            <div class="card-header">
+                <h5 class="text-center my-3">Bootstrap Color Picker</h5>
+                <p class="text-center">
+                    <a href="https://github.com/ThomasDev-de/bs-color-picker" target="_blank"
+                       class="btn btn-outline-primary btn-lg rounded-pill">
+                        <i class="bi bi-github"></i>
+                        GitHub
+                    </a>
+                </p>
+            </div>
+            <div class="card-body">
+                <form>
+                    <div class="form-group mb-3">
+                        <label>
+                            <input id="colorPicker" type="text" name="color" value="skyblue"
+                                   data-btn-class="btn-outline-light "
+                                   class="form-control">
+                        </label>
+                    </div>
+                    <button type="submit" class="btn btn-primary rounded-5">Submit</button>
+                </form>
+            </div>
+        </div>
     </div>
-    <div class="form-group mb-3">
-        <label>
-            <input type="text" name="color2" data-btn-class="btn-outline-light btn-lg rounded-pill" class="form-control">
-        </label>
+
+    <div class="flex-grow-1 p-3">
+        <div id="playground">
+            <pre id="eventLog" class="bg-black p-2 font-monospace"></pre>
+        </div>
     </div>
-    <button type="submit" class="btn btn-primary mt-5">Submit</button>
-</form>
+</div>
+
 <script src="../vendor/components/jquery/jquery.min.js"></script>
 <script src="../vendor/twbs/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 <script src="../dist/bs-color-picker.js"></script>
@@ -35,19 +62,85 @@
             alert(JSON.stringify($(e.currentTarget).serializeArray()));
         });
 
-        $.bsColorPicker.setDefaults({
+        const colorPicker = $('#colorPicker');
+        const logEvent = function (message, data = null) {
+            // Funktion zum Formatieren der aktuellen Uhrzeit
+            const getCurrentTime = () => {
+                const now = new Date();
+                const hours = String(now.getHours()).padStart(2, '0'); // Stunden mit 2 Ziffern
+                const minutes = String(now.getMinutes()).padStart(2, '0'); // Minuten mit 2 Ziffern
+                const seconds = String(now.getSeconds()).padStart(2, '0'); // Sekunden mit 2 Ziffern
+                return `[${hours}:${minutes}:${seconds}]`; // Format: [HH:mm:ss]
+            };
+
+            const timestamp = getCurrentTime(); // Hole die aktuelle Uhrzeit
+
+            // Format the `data` part based on its type
+            let dataString = '';
+            if (data) {
+                if (typeof data === 'object') {
+                    // Format object as JSON string with indentation for readability
+                    dataString = ' => ' + JSON.stringify(data, null, 2) + '';
+                } else if (typeof data === 'string') {
+                    // Append the string as is
+                    dataString = ' (' + data + ')';
+                }
+            }
+
+            // Append the timestamp, message, and the formatted data to the <pre> element
+            $('pre#eventLog').prepend(timestamp + ' > ' + message + dataString + '<br>');
+        };
+
+
+        colorPicker.bsColorPicker({
             btnClass: 'btn-lg btn-outline-primary',
-            btnText: 'User color',
-            btnEmptyColor: 'rgba(0,0,255,.3)',
-            format: 'hex',
+            btnText: 'Choose your favorite color',
+            format: 'rgba',
             debug: false
         });
-        $('[name="color2"]').bsColorPicker();
-        setTimeout(function () {
-            // $('[data-bs-toggle="color"]').bsColorPicker('updateOptions', {btnClass: 'btn-danger'});
-            $('[name="color2"]').bsColorPicker('val', null);
-        }, 0)
 
+        colorPicker
+            .on('change.bs.colorPicker', function (e, data) {
+                logEvent('change.bs.colorPicker', data);
+                colorPicker.bsColorPicker({
+                    btnText: 'What a beautiful color'
+                });
+                setTimeout(function () {
+                    colorPicker.bsColorPicker({
+                        btnText: 'Do you still have one?'
+                    });
+                }, 2000)
+            })
+            .on('update.bs.colorPicker', function (e, data) {
+                logEvent('update.bs.colorPicker', data.length);
+            })
+            .on('all.bs.colorPicker', function (e) {
+                logEvent('all.bs.colorPicker');
+            })
+            .on('error.bs.colorPicker', function (e, data) {
+                logEvent('error.bs.colorPicker', data);
+            })
+            .on('init.bs.colorPicker', function (e, data) {
+                logEvent('init.bs.colorPicker', data);
+            })
+            .on('show.bs.colorPicker', function (e, data) {
+                logEvent('show.bs.colorPicker', data);
+            })
+            .on('shown.bs.colorPicker', function (e, data) {
+                logEvent('shown.bs.colorPicker', data);
+            })
+            .on('hide.bs.colorPicker', function (e, data) {
+                logEvent('hide.bs.colorPicker', data);
+            })
+            .on('hidden.bs.colorPicker', function (e, data) {
+                logEvent('hidden.bs.colorPicker', data);
+            })
+            .on('reset.bs.colorPicker', function (e, data) {
+                logEvent('reset.bs.colorPicker', data);
+            })
+            .on('cancel.bs.colorPicker', function (e, data) {
+                logEvent('cancel.bs.colorPicker', data);
+            })
     });
 </script>
 </body>
