@@ -38,6 +38,19 @@
                                    class="form-control">
                         </label>
                     </div>
+
+                    <div class="form-floating mb-3">
+                        <select class="form-select" id="selectOutputFormat" aria-label="Floating label select example">
+                            <option selected value="rgba">rgba</option>
+                            <option value="rgb">rgb</option>
+                            <option value="hex">hex</option>
+                            <option value="hsl">hsl</option>
+                            <option value="hsla">hsla</option>
+                            <option value="invalid">a invalid format</option>
+                        </select>
+                        <label for="selectOutputFormat">select output format</label>
+                    </div>
+
                     <button type="submit" class="btn btn-primary rounded-5">Submit</button>
                 </form>
             </div>
@@ -61,7 +74,7 @@
             e.preventDefault();
             alert(JSON.stringify($(e.currentTarget).serializeArray()));
         });
-
+        const selectOutputFormat = $('#selectOutputFormat');
         const colorPicker = $('#colorPicker');
         const logEvent = function (message, data = null) {
             // Funktion zum Formatieren der aktuellen Uhrzeit
@@ -96,8 +109,14 @@
             btnClass: 'btn-lg btn-outline-primary',
             btnText: 'Choose your favorite color',
             format: 'rgba',
-            debug: false
+            debug: true
         });
+
+        selectOutputFormat.on('change', function (e) {
+            colorPicker.bsColorPicker('updateOptions',{
+                format: $(this).val()
+            });
+        })
 
         colorPicker
             .on('change.bs.colorPicker', function (e, data) {

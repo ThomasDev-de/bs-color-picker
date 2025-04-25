@@ -200,10 +200,13 @@
              * @returns {{r: number, g: number, b: number}} The RGB color object
              */
             hslToRGB({h, s, l}) {
+                console.log('----------------- hslToRGB -----------------');
+                console.log('Input:', {h, s, l}); // Eingabewerte prüfen
                 let r, g, b;
 
                 if (s === 0) {
                     r = g = b = l;
+                    console.log('Grayscale:', {r, g, b});
                 } else {
                     const hue2rgb = (p, q, t) => {
                         if (t < 0) t += 1;
@@ -214,18 +217,31 @@
                         return p;
                     };
 
+                    // Farbwerte berechnen
                     const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
                     const p = 2 * l - q;
+
+                    console.log('Intermediate values:', {q, p});
 
                     r = hue2rgb(p, q, (h / 360 + 1 / 3));
                     g = hue2rgb(p, q, (h / 360));
                     b = hue2rgb(p, q, (h / 360 - 1 / 3));
+
+                    console.log('Calculated RGB:', {r, g, b});
                 }
 
-                return {
-                    r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255)
+                // Ergebnisse skalieren
+                const result = {
+                    r: Math.round(r * 255),
+                    g: Math.round(g * 255),
+                    b: Math.round(b * 255)
                 };
-            }, /**
+
+                console.log('Final RGB:', result);
+                console.log('----------------- hslToRGB completed -----------------');
+                return result;
+            },
+            /**
              * Converts RGB color values to HSV color space
              * @param {number} r - Red component (0-255)
              * @param {number} g - Green component (0-255)
@@ -511,6 +527,7 @@
              */
             convertColorFormats(customColor, debug = false) {
                 if (debug) {
+                    console.log('----------------- convertColorFormats -----------------');
                     console.log("convertColorFormats", customColor);
                 }
                 if (!customColor) {
@@ -660,7 +677,7 @@
                                     }
 
                                     // Convert HSL to RGB
-                                    rgb = $.bsColorPicker.utils.HSLtoRGB(hsl.h, hsl.s, hsl.l);
+                                    rgb = $.bsColorPicker.utils.hslToRGB(hsl.h, hsl.s, hsl.l);
                                     if (rgb) {
                                         rgba = {
                                             ...rgb,
@@ -754,12 +771,14 @@
                     if (debug) {
                         console.log("returnData =", returnData);
                     }
+                    console.log('----------------- convertColorFormats completed -----------------');
                     return returnData;
                 } catch (e) {
                     console.error(
                         "Invalid color format in function convertColorFormats:",
                         e
                     );
+                    console.log('----------------- convertColorFormats completed -----------------');
                     return null;
                 }
             }
@@ -1266,7 +1285,8 @@
         }
         if (value) {
             // Convert the input value into various color formats
-            const color = $.bsColorPicker.utils.convertColorFormats(value, settings.debug);
+            const color = $.bsColorPicker.utils.convertColorFormats(value, true);
+            // const color = $.bsColorPicker.utils.convertColorFormats(value, settings.debug);
             if (settings.debug) {
                 log('setValue color =', color);
             }
@@ -1279,17 +1299,24 @@
                 setVar($element, 'currentValue', color.hsv.v);
 
                 // Update the UI components
-                updateColor($element, false);               // Refresh the canvas (color representation)
-                updateAllInputs($element, color); // Update input fields with the new color
-                if (updateButton) {
-                    updateButtonColor($element, value);  // Update the button's preview color
-                }
+                updateColor($element, false)
+                    .then(() => {
+                        updateAllInputs($element, color); // Update input fields with the new color
+                        if (updateButton) {
+                            updateButtonColor($element, value);  // Update the button's preview color
+                        }
 
-                let newValue = getOutputFormat($element);
-                if (settings.debug) {
-                    log(`setValue newValue to format (${settings.format})  =`, newValue);
-                }
-                $element.val(newValue);
+                        let newValue = getOutputFormat($element);
+                        if (settings.debug) {
+                            log(`setValue newValue to format (${settings.format})  =`, newValue);
+                        }
+                        $element.val(newValue);
+                    })
+                    .catch(error => {
+                        // Fehler abfangen
+                        trigger($element, 'error', error);
+                    });
+
             } else {
                 if (settings.debug) {
                     log('setValue color is null');
@@ -1393,6 +1420,7 @@
         dropdown
             .on('click', '.' + submitBtnClass, function (e) {
                 e.preventDefault();
+
                 setColorOnElement($element); // Apply the selected color
             })
             // Handle changes in input fields
@@ -1438,12 +1466,21 @@
                 canvas.width = calcTotalWidth($element); // Set canvas width dynamically
                 canvas.height = vars.size; // Set canvas height dynamically
                 if (!$.bsColorPicker.utils.isValueEmpty(currentElementValue)) {
-                    updateColor($element, false); // Initialize and draw the color canvas
+                    updateColor($element, false)
+                        .then(() => {
+                            // nothing to do
+                        })
+                        .catch(error => {
+                            // Fehler abfangen
+                            trigger($element, 'error', error);
+                        });
+
                 } else {
                     updateColorToNull($element, false, false);
                 }
             })
             .on('mousedown', '.' + classCanvas, function (e) {
+
                 dropdown.data('isInsideCanvas', true);
                 if (settings.debug) {
                     log('event mousedown on', classCanvas, $element);
@@ -1470,14 +1507,15 @@
         $(document)
             // Handle mouse move events to update active control areas
             .on('mousemove', function (e) {
-                const drop = getDropdown($element);
-                if (!drop.length)
-                    return;
-                const canvas = getCanvas($element).get(0);
                 const vars = getVars($element);
                 const activeControl = vars.activeControl;
 
                 if (!activeControl) return; // If no active control, exit
+
+                const drop = getDropdown($element);
+                if (!drop.length) return;
+
+                const canvas = getCanvas($element).get(0);
 
                 // Get the mouse position relative to the canvas
                 const pos = $.bsColorPicker.utils.getMousePosition(e, canvas);
@@ -1493,9 +1531,14 @@
             })
             // Handle mouse up events to disable active controls
             .on('mouseup', function () {
+                const vars = getVars($element);
+                const activeControl = vars.activeControl;
+
+                if (!activeControl) return; // If no active control, exit
+
                 const drop = getDropdown($element);
-                if (!drop.length)
-                    return;
+                if (!drop.length) return;
+
                 setVar($element, 'activeControl', null); // Reset active control
             });
     }
@@ -1738,54 +1781,101 @@
      * @param {jQuery} $element - The jQuery object representing the color picker element.
      * @param {boolean} [doTrigger=true] - Whether to trigger the "update" event after updating the color.
      */
-    function updateColor($element, doTrigger = true) {
-        // Get the canvas and its context
-        const canvas = getCanvas($element).get(0);
-        const context = getCanvasContext($element);
+    async function updateColor($element, doTrigger = true) {
+        return new Promise((resolve, reject) => {
+            try {
+                // Get the canvas and its context
+                const canvas = getCanvas($element).get(0);
+                const context = getCanvasContext($element);
 
-        // Calculate total width of the color picker
-        const totalWidth = calcTotalWidth($element);
+                if (!canvas) {
+                    throw new Error('Canvas element not found!');
+                }
+                if (!context) {
+                    throw new Error('Canvas context could not be retrieved!');
+                }
 
-        // Retrieve relevant variables
-        const vars = getVars($element);
-        const settings = getSettings($element);
+                // Calculate total width of the color picker
+                const totalWidth = calcTotalWidth($element);
 
-        // Clear the entire canvas
-        context.clearRect(0, 0, totalWidth, vars.size);
+                // Retrieve relevant variables
+                const vars = getVars($element);
+                const settings = getSettings($element);
 
-        // Calculate the current color as rgb
-        const rgb = $.bsColorPicker.utils.HSVtoRGB(vars.currentHue, vars.currentSaturation, vars.currentValue);
-        const rgbaColor = `rgba(${rgb.r},${rgb.g},${rgb.b},${vars.currentOpacity})`;
+                if (!vars || typeof vars !== 'object') {
+                    throw new Error('Failed to retrieve color picker variables!');
+                }
+                if (!settings || typeof settings !== 'object') {
+                    throw new Error('Failed to retrieve color picker settings!');
+                }
 
-        // Redraw all components of the color picker
-        drawPreview($element, rgbaColor);                // Preview section
-        drawMainSquare($element, vars.currentHue);       // Main color square (Saturation and Value)
-        drawHueSlider($element);                         // Hue slider
-        drawOpacitySlider($element);                     // Opacity slider
+                // Clear the entire canvas
+                context.clearRect(0, 0, totalWidth, vars.size);
 
-        // Calculate and draw markers
-        const mainX = vars.previewSize + vars.padding + (vars.currentSaturation * vars.size);
-        const mainY = (1 - vars.currentValue) * vars.size;
-        drawMarker($element, mainX, mainY);              // Marker for main color square
+                // Calculate the current color as rgb
+                const rgb = $.bsColorPicker.utils.HSVtoRGB(vars.currentHue, vars.currentSaturation, vars.currentValue);
+                if (!rgb || typeof rgb.r !== 'number' || typeof rgb.g !== 'number' || typeof rgb.b !== 'number') {
+                    throw new Error('Failed to convert HSV to RGB!');
+                }
 
-        const hueY = (vars.currentHue / 360) * vars.size;
-        drawMarker($element, vars.previewSize + vars.padding + vars.size + vars.padding + vars.sliderWidth / 2, hueY, true);                                               // Marker for hue slider
+                const rgbaColor = `rgba(${rgb.r},${rgb.g},${rgb.b},${vars.currentOpacity})`;
 
-        const opacityY = (1 - vars.currentOpacity) * vars.size;
-        drawMarker($element, vars.previewSize + vars.padding + vars.size + vars.padding + vars.sliderWidth + vars.padding + vars.sliderWidth / 2, opacityY, true);                                               // Marker for opacity slider
+                // Redraw all components of the color picker
+                drawPreview($element, rgbaColor);                // Preview section
+                drawMainSquare($element, vars.currentHue);       // Main color square (Saturation and Value)
+                drawHueSlider($element);                         // Hue slider
+                drawOpacitySlider($element);                     // Opacity slider
 
-        // Calculate additional color formats
-        const data = $.bsColorPicker.utils.convertColorFormats(`rgba(${rgb.r},${rgb.g},${rgb.b},${vars.currentOpacity})`, settings.debug)
+                // Calculate and draw markers
+                const mainX = vars.previewSize + vars.padding + (vars.currentSaturation * vars.size);
+                const mainY = (1 - vars.currentValue) * vars.size;
+                drawMarker($element, mainX, mainY);              // Marker for main color square
 
-        // Store color details in the jQuery element's data
-        $element.data('selected', data);
+                const hueY = (vars.currentHue / 360) * vars.size;
+                drawMarker(
+                    $element,
+                    vars.previewSize + vars.padding + vars.size + vars.padding + vars.sliderWidth / 2,
+                    hueY,
+                    true
+                );                                               // Marker for hue slider
 
-        // Trigger the "update" event with the selected color details if necessary
-        if (doTrigger) {
-            trigger($element, 'update', data);
-        }
+                const opacityY = (1 - vars.currentOpacity) * vars.size;
+                drawMarker(
+                    $element,
+                    vars.previewSize + vars.padding + vars.size + vars.padding + vars.sliderWidth + vars.padding + vars.sliderWidth / 2,
+                    opacityY,
+                    true
+                );                                               // Marker for opacity slider
 
-        updateAllInputs($element, data); // Update all input fields with the new color values
+                // Calculate additional color formats
+                const data = $.bsColorPicker.utils.convertColorFormats(
+                    `rgba(${rgb.r},${rgb.g},${rgb.b},${vars.currentOpacity})`,
+                    settings.debug
+                );
+
+                if (!data) {
+                    throw new Error('Failed to convert color formats!');
+                }
+
+                // Store color details in the jQuery element's data
+                $element.data('selected', data);
+
+                // Trigger the "update" event with the selected color details if necessary
+                if (doTrigger) {
+                    trigger($element, 'update', data);
+                }
+
+                // Update all input fields with the new color values
+                updateAllInputs($element, data);
+
+                // Resolve the promise with the color data
+                resolve(data);
+            } catch (error) {
+                // Log the error and reject the promise
+                console.error('Error in updateColor:', error);
+                reject(error);
+            }
+        });
     }
 
     function updateColorToNull($element, doTrigger = true, updateBtn = false) {
@@ -1831,7 +1921,9 @@
     }
 
     function getOutputFormat($element) {
+
         const selectedColorSet = $element.data('selected');
+
         if (!selectedColorSet) {
             return null;
         }
@@ -2017,50 +2109,71 @@
      * @param {jQuery} $element - The jQuery object representing the color picker element.
      */
     function drawOpacitySlider($element) {
-        // Get the canvas' drawing context
-        const context = getCanvasContext($element);
-
-        // Retrieve relevant variables for slider dimensions and color values
-        const vars = getVars($element);
-        const colorFieldWidthHeight = vars.size;  // Height of the opacity slider (matches the color field size)
-        const sliderWidth = vars.sliderWidth;    // Width of the opacity slider
-        const imageData = context.createImageData(sliderWidth, colorFieldWidthHeight);
-
-        // Convert the current color to RGB format for the gradient
-        const rgb = $.bsColorPicker.utils.HSVtoRGB(vars.currentHue, vars.currentSaturation, vars.currentValue);
-
-        // Create a checkerboard background pattern for the transparency slider
-        for (let y = 0; y < colorFieldWidthHeight; y++) {
-            const alpha = 1 - (y / (colorFieldWidthHeight - 1)); // Unused variable (for next gradient steps)
-            for (let x = 0; x < sliderWidth; x++) {
-                const idx = (y * sliderWidth + x) * 4;
-                // Create a 5x5 pixel checkerboard pattern
-                const isCheckerboard = ((Math.floor(y / 5) + Math.floor(x / 5)) % 2 === 0);
-                const baseColor = isCheckerboard ? 255 : 220; // Light/dark squares for the checkerboard
-
-                // Define the background color (R, G, B)
-                imageData.data[idx] = baseColor;
-                imageData.data[idx + 1] = baseColor;
-                imageData.data[idx + 2] = baseColor;
-                imageData.data[idx + 3] = 255; // Full alpha for the checkerboard
+        try {
+            // Get the canvas' drawing context
+            const context = getCanvasContext($element);
+            if (!context) {
+                throw new Error('Canvas context could not be retrieved.');
             }
+
+            // Retrieve relevant variables for slider dimensions and color values
+            const vars = getVars($element);
+            if (!vars || typeof vars !== 'object') {
+                throw new Error('Variables for the slider are missing or invalid.');
+            }
+
+            const colorFieldWidthHeight = vars.size;
+            const sliderWidth = vars.sliderWidth;
+
+            // Validate dimensions
+            if (typeof colorFieldWidthHeight !== 'number' || colorFieldWidthHeight <= 0) {
+                throw new Error(`Invalid color field height: ${colorFieldWidthHeight}`);
+            }
+            if (typeof sliderWidth !== 'number' || sliderWidth <= 0) {
+                throw new Error(`Invalid slider width: ${sliderWidth}`);
+            }
+
+            // Convert the current color to RGB format for the gradient
+            const rgb = $.bsColorPicker.utils.HSVtoRGB(vars.currentHue, vars.currentSaturation, vars.currentValue);
+            if (!rgb || typeof rgb.r !== 'number' || typeof rgb.g !== 'number' || typeof rgb.b !== 'number') {
+                throw new Error(`Invalid RGB values converted from HSV: ${JSON.stringify(rgb)}`);
+            }
+
+            // Create a checkerboard background pattern for the transparency slider
+            const imageData = context.createImageData(sliderWidth, colorFieldWidthHeight);
+            for (let y = 0; y < colorFieldWidthHeight; y++) {
+                for (let x = 0; x < sliderWidth; x++) {
+                    const idx = (y * sliderWidth + x) * 4;
+                    const isCheckerboard = ((Math.floor(y / 5) + Math.floor(x / 5)) % 2 === 0);
+                    const baseColor = isCheckerboard ? 255 : 220;
+
+                    imageData.data[idx] = baseColor;      // Red
+                    imageData.data[idx + 1] = baseColor; // Green
+                    imageData.data[idx + 2] = baseColor; // Blue
+                    imageData.data[idx + 3] = 255;       // Alpha
+                }
+            }
+
+            // Draw the checkerboard background
+            const xOffset = vars.previewSize + vars.padding + colorFieldWidthHeight + vars.padding + sliderWidth + vars.padding;
+            context.putImageData(imageData, xOffset, 0);
+
+            // Overlay the gradient for the opacity
+            context.save();
+            context.globalCompositeOperation = 'source-over';
+
+            const gradient = context.createLinearGradient(0, 0, 0, colorFieldWidthHeight);
+            gradient.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},1)`); // Fully opaque
+            gradient.addColorStop(1, `rgba(${rgb.r},${rgb.g},${rgb.b},0)`); // Fully transparent
+
+            context.fillStyle = gradient;
+            context.fillRect(xOffset, 0, sliderWidth, colorFieldWidthHeight);
+
+            context.restore();
+        } catch (error) {
+            trigger($element, 'error', error.message);
+            console.error('Error in drawOpacitySlider:', error);
         }
-
-        // Draw the checkerboard background
-        context.putImageData(imageData, vars.previewSize + vars.padding + colorFieldWidthHeight + vars.padding + sliderWidth + vars.padding, 0);
-
-        // Overlay the gradient for the opacity
-        context.save();
-        context.globalCompositeOperation = 'source-over'; // Draw over the existing background
-        const gradient = context.createLinearGradient(0, 0, 0, colorFieldWidthHeight);
-        gradient.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},1)`); // Fully opaque at the top
-        gradient.addColorStop(1, `rgba(${rgb.r},${rgb.g},${rgb.b},0)`); // Fully transparent at the bottom
-
-        // Draw the gradient over the slider area
-        context.fillStyle = gradient;
-        context.fillRect(vars.previewSize + vars.padding + colorFieldWidthHeight + vars.padding + sliderWidth + vars.padding, 0, sliderWidth, colorFieldWidthHeight);
-
-        context.restore(); // Restore the context to its previous state
     }
 
     /**
@@ -2201,7 +2314,14 @@
         setVar($element, 'currentValue', v);
 
         // Update the color picker UI with the new saturation and value
-        updateColor($element, true);
+        updateColor($element, true)
+            .then(() => {
+                // nothing to do
+            })
+            .catch(error => {
+                // Fehler abfangen
+                trigger($element, 'error', error);
+            });
     }
 
     /**
@@ -2234,7 +2354,14 @@
         setVar($element, 'currentHue', currentHue);
 
         // Trigger a color update in the UI to reflect the changes in the hue.
-        updateColor($element, true);
+        updateColor($element, true)
+            .then(() => {
+                // nothing to do
+            })
+            .catch(error => {
+                // Fehler abfangen
+                trigger($element, 'error', error);
+            });
     }
 
     /**
@@ -2266,7 +2393,14 @@
         setVar($element, 'currentOpacity', parseFloat(currentOpacity.toFixed(2)));
 
         // Trigger a color update in the UI to reflect the changes in the opacity.
-        updateColor($element, true);
+        updateColor($element, true)
+            .then(() => {
+                // nothing to do
+            })
+            .catch(error => {
+                // Fehler abfangen
+                trigger($element, 'error', error);
+            });
     }
 
     /**
@@ -2476,7 +2610,6 @@
 
                     // Convert the HSL values to RGB format using a utility function.
                     rgba = $.bsColorPicker.utils.hslToRGB(hsl);
-
                     // Convert the RGB values to HSV format using a utility function.
                     hsv = $.bsColorPicker.utils.RGBtoHSV(rgba.r, rgba.g, rgba.b);
                     break;
@@ -2495,8 +2628,14 @@
             setVar($element, 'currentValue', hsv.v);
 
             // Apply the updated color settings (e.g., update the UI to reflect the new color).
-            updateColor($element, true);
-
+            updateColor($element, true)
+                .then(() => {
+                    // nothing to do
+                })
+                .catch(error => {
+                    // Fehler abfangen
+                    trigger($element, 'error', error);
+                });
         } catch (e) {
             // If an error occurs during the try block, catch the exception and handle it here.
             // Check if the debug mode is enabled in the settings.
