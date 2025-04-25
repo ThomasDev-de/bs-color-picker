@@ -796,7 +796,7 @@
     const opacitySliderClass = 'bs-color-picker-opacity-slider';
 
 
-    $.fn.bsColorPicker = function (optionsOrMethod, params) {
+    $.fn.bsColorPicker = async function (optionsOrMethod, params) {
         // Check if there are items
         if (this.length === 0) {
             return this; // Just return the jQuery object, but don't do any further logic
@@ -859,16 +859,15 @@
                 $element.attr('type', 'hidden');
             }
 
-            init($element).then(() => {
-                if (!$element.data('ignoreEvents')) {
-                    trigger($element, 'init');
-                } else {
-                    $element.removeData('ignoreEvents');
-                }
-                if (settings.debug) {
-                    log('Init completed');
-                }
-            });
+            await init($element);
+            if (!$element.data('ignoreEvents')) {
+                trigger($element, 'init');
+            } else {
+                $element.removeData('ignoreEvents');
+            }
+            if (settings.debug) {
+                log('Init completed');
+            }
         } else {
             settings = getSettings($element);
         }
@@ -925,13 +924,12 @@
             const before = $element.data('before');
             $element.attr('type', before.type).show(); // Reset the type
             $element.removeData('before');
-
         }
         // Remove all specific data
         $element.removeClass(classElement);
         $element.removeData('initBsColorPicker');
         $element.removeData('vars');
-        $element.removeData('selected');
+        // $element.removeData('selected');
         $element.removeData('settings');
         if (settings.debug) {
             log('Element has been completely reset:', $element);
@@ -951,6 +949,8 @@
             }
             destroy($element, false);
             $element.bsColorPicker(newSettings);
+        } else {
+            trigger($element, 'error', 'Invalid options on method updateOptions. Options must be an object.');
         }
         if (debug) {
             log('updateOptions completed');
@@ -1278,60 +1278,65 @@
      * @param {jQuery} $element - The jQuery object of the color picker.
      * @param {string|null} value - The color value to set, in any supported format (e.g., HEX, RGB, HSL).
      */
-    function setValue($element, value, triggerChange = true, updateButton = false) {
+    async function setValue($element, value, triggerChange = true, updateButton = false) {
         const settings = getSettings($element);
+        let success = false;
+
         if (settings.debug) {
             log('setValue called', value);
         }
-        if (value) {
-            // Convert the input value into various color formats
-            const color = $.bsColorPicker.utils.convertColorFormats(value, true);
-            // const color = $.bsColorPicker.utils.convertColorFormats(value, settings.debug);
-            if (settings.debug) {
-                log('setValue color =', color);
-            }
 
-            if (color) {
-                // Update internal variables (opacity, hue, saturation, value)
-                setVar($element, 'currentOpacity', parseFloat(color.alpha.toFixed(2)));
-                setVar($element, 'currentHue', color.hsv.h);
-                setVar($element, 'currentSaturation', color.hsv.s);
-                setVar($element, 'currentValue', color.hsv.v);
+        try {
+            if (value) {
+                // Farbkonvertierung mit settings.debug
+                const color = $.bsColorPicker.utils.convertColorFormats(value, settings.debug);
 
-                // Update the UI components
-                updateColor($element, false)
-                    .then(() => {
-                        updateAllInputs($element, color); // Update input fields with the new color
-                        if (updateButton) {
-                            updateButtonColor($element, value);  // Update the button's preview color
-                        }
-
-                        let newValue = getOutputFormat($element);
-                        if (settings.debug) {
-                            log(`setValue newValue to format (${settings.format})  =`, newValue);
-                        }
-                        $element.val(newValue);
-                    })
-                    .catch(error => {
-                        // Fehler abfangen
-                        trigger($element, 'error', error);
-                    });
-
-            } else {
                 if (settings.debug) {
-                    log('setValue color is null');
+                    log('setValue color =', color);
                 }
-                // Handle invalid color input
-                trigger($element, 'error', 'Invalid color format, set color to null');
+
+                if (color) {
+                    // Interne Variablen aktualisieren
+                    setVar($element, 'currentOpacity', parseFloat(color.alpha.toFixed(2)));
+                    setVar($element, 'currentHue', color.hsv.h);
+                    setVar($element, 'currentSaturation', color.hsv.s);
+                    setVar($element, 'currentValue', color.hsv.v);
+
+                    // UI-Komponenten aktualisieren
+                    await updateColor($element, false);
+                    updateAllInputs($element, color);
+
+                    if (updateButton) {
+                        updateButtonColor($element, value);
+                    }
+
+                    let newValue = getOutputFormat($element);
+                    if (settings.debug) {
+                        log(`setValue newValue to format (${settings.format}) =`, newValue);
+                    }
+                    $element.val(newValue);
+                    success = true;
+                } else {
+                    if (settings.debug) {
+                        log('setValue color is null');
+                    }
+                    trigger($element, 'error', 'Invalid color format, set color to null');
+                    updateColorToNull($element, triggerChange, updateButton);
+                }
+            } else {
                 updateColorToNull($element, triggerChange, updateButton);
+                success = true;
             }
-        } else {
-            updateColorToNull($element, triggerChange, updateButton);
+        } catch (error) {
+            console.error('Error in setValue:', error);
+            trigger($element, 'error', error);
         }
 
-        if (triggerChange) {
+        // Change-Event nur auslösen, wenn keine Fehler aufgetreten sind
+        if (success && triggerChange) {
             trigger($element, 'change', value);
         }
+
         if (settings.debug) {
             log('setValue completed');
         }
@@ -1455,7 +1460,7 @@
                 const dropdown = $(e.currentTarget);
                 closeOtherDropdowns(dropdown);
             })
-            .on('shown.bs.dropdown', function () {
+            .on('shown.bs.dropdown', async function () {
                 if (settings.debug) {
                     log('Dropdown is shown, initializing canvas');
                 }
@@ -1466,14 +1471,7 @@
                 canvas.width = calcTotalWidth($element); // Set canvas width dynamically
                 canvas.height = vars.size; // Set canvas height dynamically
                 if (!$.bsColorPicker.utils.isValueEmpty(currentElementValue)) {
-                    updateColor($element, false)
-                        .then(() => {
-                            // nothing to do
-                        })
-                        .catch(error => {
-                            // Fehler abfangen
-                            trigger($element, 'error', error);
-                        });
+                    await updateColor($element, false);
 
                 } else {
                     updateColorToNull($element, false, false);
@@ -1781,9 +1779,13 @@
      * @param {jQuery} $element - The jQuery object representing the color picker element.
      * @param {boolean} [doTrigger=true] - Whether to trigger the "update" event after updating the color.
      */
-    async function updateColor($element, doTrigger = true) {
+    function updateColor($element, doTrigger = true) {
         return new Promise((resolve, reject) => {
             try {
+                if (!$element || !$element.length) {
+                    throw new Error('Invalid element parameter!');
+                }
+
                 // Get the canvas and its context
                 const canvas = getCanvas($element).get(0);
                 const context = getCanvasContext($element);
@@ -2267,7 +2269,7 @@
      *    @property {number} pos.x - The x-coordinate of the user's click relative to the element.
      *    @property {number} pos.y - The y-coordinate of the user's click relative to the element.
      */
-    function handleColorAreaClick($element, pos) {
+    async function handleColorAreaClick($element, pos) {
         const settings = getSettings($element);
         if (settings.debug) {
             // Debug output: Log raw position of the color area click
@@ -2314,14 +2316,7 @@
         setVar($element, 'currentValue', v);
 
         // Update the color picker UI with the new saturation and value
-        updateColor($element, true)
-            .then(() => {
-                // nothing to do
-            })
-            .catch(error => {
-                // Fehler abfangen
-                trigger($element, 'error', error);
-            });
+        await updateColor($element, true);
     }
 
     /**
@@ -2334,7 +2329,7 @@
      *    @property {number} pos.y - The y-coordinate of the user's click relative to the element.
      *    @property {number} pos.x - The x-coordinate of the user's click relative to the element.
      */
-    function handleHueClick($element, pos) {
+    async function handleHueClick($element, pos) {
 
         // Retrieve variables (e.g., current settings and state) associated with the specified color picker element ($element).
         const vars = getVars($element);
@@ -2354,14 +2349,7 @@
         setVar($element, 'currentHue', currentHue);
 
         // Trigger a color update in the UI to reflect the changes in the hue.
-        updateColor($element, true)
-            .then(() => {
-                // nothing to do
-            })
-            .catch(error => {
-                // Fehler abfangen
-                trigger($element, 'error', error);
-            });
+        await updateColor($element, true);
     }
 
     /**
@@ -2373,7 +2361,7 @@
      * @param {Object} pos - An object containing the click position with the following properties:
      *    @property {number} pos.y - The y-coordinate of the user's click relative to the element.
      */
-    function handleOpacityClick($element, pos) {
+    async function handleOpacityClick($element, pos) {
 
         // Retrieve variables (e.g., current settings and state) related to the specified color picker element ($element).
         const vars = getVars($element);
@@ -2393,14 +2381,7 @@
         setVar($element, 'currentOpacity', parseFloat(currentOpacity.toFixed(2)));
 
         // Trigger a color update in the UI to reflect the changes in the opacity.
-        updateColor($element, true)
-            .then(() => {
-                // nothing to do
-            })
-            .catch(error => {
-                // Fehler abfangen
-                trigger($element, 'error', error);
-            });
+        await updateColor($element, true);
     }
 
     /**
@@ -2497,7 +2478,7 @@
      * @param {object} $input - The input element providing the color value and its format.
      * @return {void} - This function does not return a value.
      */
-    function updateFromInput($element, $input) {
+    async function updateFromInput($element, $input) {
         // Get the current value of the input element ($input).
         const value = $input.val();
 
@@ -2628,14 +2609,7 @@
             setVar($element, 'currentValue', hsv.v);
 
             // Apply the updated color settings (e.g., update the UI to reflect the new color).
-            updateColor($element, true)
-                .then(() => {
-                    // nothing to do
-                })
-                .catch(error => {
-                    // Fehler abfangen
-                    trigger($element, 'error', error);
-                });
+            await updateColor($element, true);
         } catch (e) {
             // If an error occurs during the try block, catch the exception and handle it here.
             // Check if the debug mode is enabled in the settings.
