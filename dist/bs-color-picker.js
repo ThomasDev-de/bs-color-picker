@@ -896,16 +896,20 @@
 
         if (updateOptionAgain) {
             $element.data('ignoreEvents', true)
-            updateOptions($element, optionsOrMethod);
+            methodUpdateOptions($element, optionsOrMethod);
         } else if (methodGiven) {
             switch (optionsOrMethod) {
                 case 'val': {
                     setValue($element, params, true, true);
                 }
                     break;
+                case 'updateFormat': {
+                    methodUpdateFormat($element, params);
+                }
+                break;
                 case 'updateOptions': {
                     $element.data('ignoreEvents', true)
-                    updateOptions($element, params);
+                    methodUpdateOptions($element, params);
                 }
                     break;
                 case 'destroy': {
@@ -917,6 +921,19 @@
 
         return $element;
     };
+
+    function methodUpdateFormat($element, format) {
+        const newFormat = format.toLowerCase();
+        const settings = getSettings($element);
+        settings.format = newFormat;
+        setSettings($element, settings);
+        let newValue = getOutputFormat($element);
+        if (settings.debug) {
+            log(`setValue newValue to format (${newFormat}) =`, newValue);
+        }
+        $element.val(newValue);
+        trigger($element, 'change', newValue);
+    }
 
     function destroy($element, makeVisible) {
         const settings = getSettings($element);
@@ -958,7 +975,7 @@
         }
     }
 
-    function updateOptions($element, options) {
+    function methodUpdateOptions($element, options) {
         const settings = getSettings($element);
         const debug = settings.debug;
         if (debug) {

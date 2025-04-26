@@ -113,9 +113,7 @@
         });
 
         selectOutputFormat.on('change', function () {
-            colorPicker.bsColorPicker('updateOptions',{
-                format: $(this).val()
-            });
+            colorPicker.bsColorPicker('updateFormat', $(this).val());
         })
 
         colorPicker
