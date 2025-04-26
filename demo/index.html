@@ -33,7 +33,7 @@
                 <form>
                     <div class="form-group mb-3">
                         <label>
-                            <input id="colorPicker" type="text" name="color" value="skyblue"
+                            <input id="colorPicker" type="text" name="color"
                                    data-btn-class="btn-outline-light "
                                    class="form-control">
                         </label>
@@ -108,8 +108,8 @@
         colorPicker.bsColorPicker({
             btnClass: 'btn-lg btn-outline-primary',
             btnText: 'Choose your favorite color',
-            format: 'hsla',
-            debug: true
+            format: 'rgba',
+            debug: false
         });
 
         selectOutputFormat.on('change', function () {

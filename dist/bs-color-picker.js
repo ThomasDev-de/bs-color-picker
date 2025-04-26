@@ -194,19 +194,32 @@
                 }
 
                 return {h, s, l};
-            }, /**
+            },
+            /**
              * Converts HSL color values to RGB color space
              * @param {{h: number, s: number, l: number}} color - The HSL color object
              * @returns {{r: number, g: number, b: number}} The RGB color object
              */
-            hslToRGB({h, s, l}) {
-                console.log('----------------- hslToRGB -----------------');
-                console.log('Input:', {h, s, l}); // Eingabewerte prüfen
+            hslToRGB({h, s, l}, debug = false) {
+                if (debug) {
+                    console.log('----------------- hslToRGB -----------------');
+                    console.log('Input:', {h, s, l}); // Eingabewerte prüfen
+                }
                 let r, g, b;
+
+                // Validierung hinzufügen
+                if (h === undefined || s === undefined || l === undefined) {
+                    if (debug) {
+                        console.error('Ungültige HSL-Werte:', {h, s, l});
+                    }
+                    return {r: 0, g: 0, b: 0}; // Standardwert zurückgeben
+                }
 
                 if (s === 0) {
                     r = g = b = l;
-                    console.log('Grayscale:', {r, g, b});
+                    if (debug) {
+                        console.log('Grayscale:', {r, g, b});
+                    }
                 } else {
                     const hue2rgb = (p, q, t) => {
                         if (t < 0) t += 1;
@@ -221,13 +234,17 @@
                     const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
                     const p = 2 * l - q;
 
-                    console.log('Intermediate values:', {q, p});
+                    if (debug) {
+                        console.log('Intermediate values:', {q, p});
+                    }
 
                     r = hue2rgb(p, q, (h / 360 + 1 / 3));
                     g = hue2rgb(p, q, (h / 360));
                     b = hue2rgb(p, q, (h / 360 - 1 / 3));
 
-                    console.log('Calculated RGB:', {r, g, b});
+                    if (debug) {
+                        console.log('Calculated RGB:', {r, g, b});
+                    }
                 }
 
                 // Ergebnisse skalieren
@@ -237,8 +254,11 @@
                     b: Math.round(b * 255)
                 };
 
-                console.log('Final RGB:', result);
-                console.log('----------------- hslToRGB completed -----------------');
+                if (debug) {
+                    console.log('Final RGB:', result);
+                    console.log('----------------- hslToRGB completed -----------------');
+                }
+
                 return result;
             },
             /**
@@ -677,7 +697,7 @@
                                     }
 
                                     // Convert HSL to RGB
-                                    rgb = $.bsColorPicker.utils.hslToRGB(hsl.h, hsl.s, hsl.l);
+                                    rgb = $.bsColorPicker.utils.hslToRGB(hsl, debug);
                                     if (rgb) {
                                         rgba = {
                                             ...rgb,
@@ -770,15 +790,17 @@
                     };
                     if (debug) {
                         console.log("returnData =", returnData);
+                        console.log('----------------- convertColorFormats completed -----------------');
                     }
-                    console.log('----------------- convertColorFormats completed -----------------');
                     return returnData;
                 } catch (e) {
-                    console.error(
-                        "Invalid color format in function convertColorFormats:",
-                        e
-                    );
-                    console.log('----------------- convertColorFormats completed -----------------');
+                    if (debug) {
+                        console.error(
+                            "Invalid color format in function convertColorFormats:",
+                            e
+                        );
+                        console.log('----------------- convertColorFormats completed -----------------');
+                    }
                     return null;
                 }
             }
@@ -1315,6 +1337,7 @@
                         log(`setValue newValue to format (${settings.format}) =`, newValue);
                     }
                     $element.val(newValue);
+                    // $element.data('selected', color);
                     success = true;
                 } else {
                     if (settings.debug) {
@@ -2590,7 +2613,7 @@
                     }
 
                     // Convert the HSL values to RGB format using a utility function.
-                    rgba = $.bsColorPicker.utils.hslToRGB(hsl);
+                    rgba = $.bsColorPicker.utils.hslToRGB(hsl, settings.debug);
                     // Convert the RGB values to HSV format using a utility function.
                     hsv = $.bsColorPicker.utils.RGBtoHSV(rgba.r, rgba.g, rgba.b);
                     break;
