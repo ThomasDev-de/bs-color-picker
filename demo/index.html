@@ -46,7 +46,7 @@
                             <option value="hex">hex</option>
                             <option value="hsl">hsl</option>
                             <option value="hsla">hsla</option>
-                            <option value="invalid">a invalid format</option>
+                            <option value="invalid">invalid format</option>
                         </select>
                         <label for="selectOutputFormat">select output format</label>
                     </div>
@@ -98,6 +98,9 @@
                     // Append the string as is
                     dataString = ' (' + data + ')';
                 }
+            }
+            if(!data && message === 'change.bs.colorPicker') {
+                dataString = ' (null)';
             }
 
             // Append the timestamp, message, and the formatted data to the <pre> element

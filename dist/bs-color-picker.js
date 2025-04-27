@@ -53,6 +53,30 @@
         },
         utils: {
             /**
+             * Retrieves the list of valid output formats for colors.
+             *
+             * @return {string[]} An array of strings representing valid color output formats,
+             * which include 'rgba', 'rgb', 'hsl', 'hsla', and 'hex'.
+             */
+            getValidOutputFormates() {
+                return [
+                    'rgba',
+                    'rgb',
+                    'hsl',
+                    'hsla',
+                    'hex'
+                ];
+            },
+            /**
+             * Validates if the provided format is a valid output format.
+             *
+             * @param {string} format - The output format to validate.
+             * @return {boolean} Returns true if the format is valid, otherwise false.
+             */
+            isValidOutputFormat(format) {
+                return this.getValidOutputFormates().includes(format.toLowerCase());
+            },
+            /**
              * Checks if a value is empty (null, undefined, empty string or empty array)
              * @param {*} value - The value to check
              * @returns {boolean} True if the value is empty, false otherwise
@@ -924,15 +948,26 @@
 
     function methodUpdateFormat($element, format) {
         const newFormat = format.toLowerCase();
-        const settings = getSettings($element);
-        settings.format = newFormat;
-        setSettings($element, settings);
-        let newValue = getOutputFormat($element);
-        if (settings.debug) {
-            log(`setValue newValue to format (${newFormat}) =`, newValue);
+        if ($.bsColorPicker.utils.isValidOutputFormat(newFormat)) {
+            const settings = getSettings($element);
+            if(settings.format !== newFormat) {
+                settings.format = newFormat;
+                setSettings($element, settings);
+                let newValue = getOutputFormat($element);
+                if (settings.debug) {
+                    log(`setValue newValue to format (${newFormat}) =`, newValue);
+                }
+                $element.val(newValue);
+                trigger($element, 'change', newValue);
+            }
+            else {
+                if (settings.debug) {
+                    log(`setValue format (${newFormat}) is already set`);
+                }
+            }
+        } else {
+            trigger($element, 'error', 'Invalid output format, possible values: ' + $.bsColorPicker.utils.getValidOutputFormates().join(', '));
         }
-        $element.val(newValue);
-        trigger($element, 'change', newValue);
     }
 
     function destroy($element, makeVisible) {
@@ -1184,16 +1219,34 @@
     }
 
     function closeDropdown($element, $dropdown) {
+        // Bootstrap Events auslösen
         trigger($element, 'hide');
         const settings = getSettings($element);
         if (settings.debug) {
             log('closeDropdown called');
+
         }
 
+        // console.log('closeDropdown', $dropdown);
+
+        // Dropdown-Menu verstecken
         $dropdown
             .removeClass('show')
-            .find('.dropdown-menu, .dropdown-toggle')
+            .find('.dropdown-menu')
             .removeClass('show');
+
+        // Toggle-Button zurücksetzen
+        $dropdown.find('.dropdown-toggle')
+            .removeClass('show')
+            .attr('aria-expanded', "false");
+
+        // Wichtig: Data-Attribute zurücksetzen
+        $dropdown.find('[data-bs-popper]').removeAttr('data-bs-popper');
+
+        // Popper-Instanz zerstören (falls vorhanden)
+        if ($dropdown.data('bs.dropdown')) {
+            $dropdown.data('bs.dropdown').dispose();
+        }
 
         if (settings.debug) {
             log('closeDropdown completed');
@@ -1208,7 +1261,10 @@
      * @return {void} Does not return a value.
      */
     function closeOtherDropdowns($self) {
+        console.log('closeOtherDropdowns called');
+        console.log('closeOtherDropdowns $self =', $self);
         const $dropdowns = $(document).find('.' + classDropdown).not($self);
+        console.log('closeOtherDropdowns other =', $dropdowns.length);
         $dropdowns.each(function (i, dropdown) {
             const $dropdown = $(dropdown);
             const $element = $dropdown.find('.' + classElement);
@@ -1227,16 +1283,8 @@
             log('setColorOnElement called');
         }
         const dropdown = getDropdown($element); // Get the dropdown associated with the element
-        const colorSet = $element.data('selected'); // Retrieve the selected color data
-        if (settings.debug) {
-            log('setColorOnElement colorSet =', colorSet);
-        }
-        const strings = formatSelectedToString(colorSet); // Format the selected color into string formats
-        if (settings.debug) {
-            log('setColorOnElement as strings =', strings);
-        }
-        // Set the element's value using the RGBA format
-        setValue($element, strings.rgba, true, true);
+        const outputFormat = getOutputFormat($element);
+        setValue($element, outputFormat, true, true);
 
         // Hide the dropdown after setting the value
         closeDropdown($element, dropdown);
@@ -1420,7 +1468,7 @@
             events($element);
 
             // Get the initial value for the color picker; use btnEmptyColor if no value is present
-            const value = getValueFromElement($element) || settings.btnEmptyColor;
+            const value = getValueFromElement($element);
 
             if (settings.debug) {
                 log('Set initial value:', value);
@@ -1500,10 +1548,11 @@
                 const dropdown = $(e.currentTarget);
                 closeOtherDropdowns(dropdown);
             })
-            .on('shown.bs.dropdown', async function () {
+            .on('shown.bs.dropdown', async function (e) {
                 if (settings.debug) {
                     log('Dropdown is shown, initializing canvas');
                 }
+
                 trigger($element, 'shown');
                 const currentElementValue = getValueFromElement($element);
                 const vars = getVars($element);
