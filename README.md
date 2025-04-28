@@ -67,10 +67,7 @@ composer require webcito/bs-color-picker
 ```javascript
 $('#colorPicker').bsColorPicker();
 ```
-
-
 ## Configuration Options
-
 
 ```javascript
 $('#colorPicker').bsColorPicker({
