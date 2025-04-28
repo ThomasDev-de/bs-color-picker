@@ -833,6 +833,7 @@
         }
     };
 
+    const fallbackFormat = 'rgba';
     const classDropdown = 'bs-color-picker-dropdown';
     const classDropdownButton = 'bs-color-picker-dropdown-button';
     const classElement = 'bs-color-picker-element';
@@ -1161,7 +1162,14 @@
         if (settings.debug) {
             log('setSettings called', settings);
         }
+
+        // Make sure that a valid output format is always available
+        if (! settings.hasOwnProperty('format') || !$.bsColorPicker.utils.isValidOutputFormat(settings.format)) {
+            settings.format = fallbackFormat;
+        }
+
         $element.data('settings', settings);
+
         if (settings.debug) {
             log('setSettings completed');
         }

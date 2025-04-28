@@ -82,6 +82,7 @@ $('#colorPicker').bsColorPicker({
 | `btnText`       | string  | null                    | Custom text for the color picker button             |
 | `btnEmptyColor` | string  | 'rgba(0, 0, 0, 0.5)'    | Color used when no color is selected                |
 | `format`        | string  | 'rgba'                  | Color format (hex, rgb, rgba, hsl, hsla, cmyk)      |
+| `disabled`      | boolean | false                   | Set the dropdown disabled or not                    |
 | `debug`         | boolean | true                    | Enable/disable debug logging                        |
 | `icons`         | object  | see below               |                                                     |
 
@@ -92,9 +93,10 @@ Custom icons can be configured using Bootstrap Icons classes:
 ```javascript
 $('#colorPicker').bsColorPicker({
     icons: {
-        check: 'bi bi-check-lg',
+        check: 'bi bi-check-lg fw-bold',
         reset: 'bi bi-arrow-clockwise',
-        close: 'bi bi-x-lg'
+        close: 'bi bi-x-lg',
+        empty: 'bi bi-trash3'
     }
 });
 ```
