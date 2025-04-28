@@ -9,6 +9,8 @@ A feature-rich and customizable color picker jQuery plugin that seamlessly integ
 This plugin provides an intuitive interface for color selection with support for multiple color formats and
 transparency.
 
+![](demo/img.png)
+
 ## Features
 
 - Full color spectrum selection with saturation and value controls
@@ -33,19 +35,19 @@ transparency.
 
 ```html
 <!-- Bootstrap CSS -->
-<link href="path/to/bootstrap.min.css" rel="stylesheet">
+<link href="vendor/twbs/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
 
 <!-- Bootstrap Icons -->
-<link href="path/to/bootstrap-icons.css" rel="stylesheet">
+<link href="vendor/twbs/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
 
 <!-- jQuery -->
-<script src="path/to/jquery.min.js"></script>
+<script src="vendor/components/jquery/jquery.min.js"></script>
 
 <!-- Bootstrap JS -->
-<script src="path/to/bootstrap.bundle.min.js"></script>
+<script src="vendor/twbs/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 
 <!-- Bootstrap Color Picker -->
-<script src="path/to/bs-color-picker.js"></script>
+<script src="dist/bs-color-picker.min.js"></script>
 ```
 
 2. Create an input element in your HTML:

@@ -44,10 +44,12 @@
             btnText: null,
             btnEmptyColor: 'rgba(0, 0, 0, 0.5)',
             format: 'rgba',
+            disabled: false,
             icons: {
                 check: 'bi bi-check-lg',
                 reset: 'bi bi-arrow-clockwise',
                 close: 'bi bi-x-lg',
+                empty: 'bi bi-trash3'
             },
             debug: false
         },
@@ -832,6 +834,7 @@
     };
 
     const classDropdown = 'bs-color-picker-dropdown';
+    const classDropdownButton = 'bs-color-picker-dropdown-button';
     const classElement = 'bs-color-picker-element';
     const submitBtnClass = 'bs-color-picker-btn-submit';
     const classCanvas = 'bs-color-picker-canvas';
@@ -842,7 +845,7 @@
     const opacitySliderClass = 'bs-color-picker-opacity-slider';
 
 
-    $.fn.bsColorPicker = async function (optionsOrMethod, params) {
+    $.fn.bsColorPicker = function (optionsOrMethod, params) {
         // Check if there are items
         if (this.length === 0) {
             return this; // Just return the jQuery object, but don't do any further logic
@@ -905,70 +908,59 @@
                 $element.attr('type', 'hidden');
             }
 
-            await init($element);
-            if (!$element.data('ignoreEvents')) {
-                trigger($element, 'init');
-            } else {
-                $element.removeData('ignoreEvents');
-            }
-            if (settings.debug) {
-                log('Init completed');
-            }
+            init($element).then(() => {
+                if (!$element.data('ignoreEvents')) {
+                    trigger($element, 'init');
+                } else {
+                    $element.removeData('ignoreEvents');
+                }
+                if (settings.debug) {
+                    log('Init completed');
+                }
+            });
+
         } else {
             settings = getSettings($element);
         }
 
+        let returnValue = $element;
         if (updateOptionAgain) {
             $element.data('ignoreEvents', true)
             methodUpdateOptions($element, optionsOrMethod);
         } else if (methodGiven) {
             switch (optionsOrMethod) {
                 case 'val': {
-                    setValue($element, params, true, true);
-                }
+                    const set = !$.bsColorPicker.utils.isValueEmpty(params);
+                    if (set) {
+                        setValue($element, params, true, true);
+                    } else {
+                        returnValue = getOutputFormat($element);
+                    }
                     break;
-                case 'updateFormat': {
-                    methodUpdateFormat($element, params);
                 }
-                break;
+                case 'getColor': {
+                    const selectedColorSet = $element.data('selected');
+                    returnValue = selectedColorSet || null;
+                    break;
+                }
                 case 'updateOptions': {
                     $element.data('ignoreEvents', true)
                     methodUpdateOptions($element, params);
-                }
                     break;
+                }
                 case 'destroy': {
                     destroy($element, true);
-                }
                     break;
+                }
+                default: {
+                    trigger($element,'error', 'Unknown method: ' + optionsOrMethod);
+                    break;
+                }
             }
         }
 
-        return $element;
+        return returnValue;
     };
-
-    function methodUpdateFormat($element, format) {
-        const newFormat = format.toLowerCase();
-        if ($.bsColorPicker.utils.isValidOutputFormat(newFormat)) {
-            const settings = getSettings($element);
-            if(settings.format !== newFormat) {
-                settings.format = newFormat;
-                setSettings($element, settings);
-                let newValue = getOutputFormat($element);
-                if (settings.debug) {
-                    log(`setValue newValue to format (${newFormat}) =`, newValue);
-                }
-                $element.val(newValue);
-                trigger($element, 'change', newValue);
-            }
-            else {
-                if (settings.debug) {
-                    log(`setValue format (${newFormat}) is already set`);
-                }
-            }
-        } else {
-            trigger($element, 'error', 'Invalid output format, possible values: ' + $.bsColorPicker.utils.getValidOutputFormates().join(', '));
-        }
-    }
 
     function destroy($element, makeVisible) {
         const settings = getSettings($element);
@@ -1011,18 +1003,82 @@
     }
 
     function methodUpdateOptions($element, options) {
-        const settings = getSettings($element);
+        let settings = getSettings($element);
         const debug = settings.debug;
         if (debug) {
             log('updateOptions called', options);
         }
         if (typeof options === 'object') {
-            const newSettings = $.extend(true, {}, $.bsColorPicker.getDefaults(), settings, options);
-            if (debug) {
-                log('New settings:', newSettings);
+            if (options.hasOwnProperty('debug') && typeof options.debug === 'boolean') {
+                settings.debug = options.debug;
+                setSettings($element, settings);
+                settings = getSettings($element);
             }
-            destroy($element, false);
-            $element.bsColorPicker(newSettings);
+            if (options.hasOwnProperty('format')) {
+                const newFormat = options.format.toLowerCase();
+                if ($.bsColorPicker.utils.isValidOutputFormat(options.format)) {
+                    if (settings.format !== newFormat) {
+                        settings.format = newFormat;
+                        setSettings($element, settings);
+                        let newValue = getOutputFormat($element);
+                        if (settings.debug) {
+                            log(`setValue newValue to format (${newFormat}) =`, newValue);
+                        }
+                        $element.val(newValue);
+                        trigger($element, 'change', newValue);
+                        settings = getSettings($element);
+                    } else {
+                        if (debug) {
+                            log('format is already set to', settings.format);
+                        }
+                    }
+                    settings.format = options.format.toLowerCase();
+                    setSettings($element, settings);
+                    settings = getSettings($element);
+                } else {
+                    trigger($element, 'error', 'Invalid format. Please use one of the following: ' + $.bsColorPicker.utils.getValidOutputFormates().join(', '));
+                    if (debug) {
+                        log('Invalid format:', options.format);
+                    }
+                }
+
+            }
+            if (options.hasOwnProperty('btnText')) {
+                settings.btnText = options.btnText;
+                setSettings($element, settings);
+                getDropdownButton($element)
+                    .find('.' + classDropdownButton)
+                    .html(settings.btnText || '');
+                settings = getSettings($element);
+            }
+            if (options.hasOwnProperty('btnClass')) {
+                const btnClassBefore = settings.btnClass;
+                settings.btnClass = options.btnClass;
+                setSettings($element, settings);
+                getDropdownButton($element)
+                    .removeClass(btnClassBefore)
+                    .addClass(settings.btnClass);
+                settings = getSettings($element);
+            }
+            if (options.hasOwnProperty('disabled') && typeof options.disabled === 'boolean') {
+                settings.disabled = options.disabled;
+                setSettings($element, settings);
+                if (settings.disabled) {
+                    getDropdownButton($element).not('.disabled').addClass('disabled');
+                    $element.attr('disabled', 'disabled');
+                } else {
+                    getDropdownButton($element).removeClass('disabled');
+                    $element.removeAttr('disabled');
+                }
+                settings = getSettings($element);
+            }
+            // old
+            // const newSettings = $.extend(true, {}, $.bsColorPicker.getDefaults(), settings, options);
+            // if (debug) {
+            //     log('New settings:', newSettings);
+            // }
+            // destroy($element, false);
+            // $element.bsColorPicker(newSettings);
         } else {
             trigger($element, 'error', 'Invalid options on method updateOptions. Options must be an object.');
         }
@@ -1164,6 +1220,10 @@
         return $element.closest('.' + classDropdown);
     }
 
+    function getDropdownButton($element) {
+        return getDropdown($element).find('.dropdown-toggle');
+    }
+
     /**
      * Retrieves the canvas element within the dropdown associated with the given element.
      *
@@ -1196,9 +1256,7 @@
         if (settings.debug) {
             log('resetColor called', closeOpenDropdown);
         }
-        if (triggerEvent) {
-            trigger($element, triggerEvent);
-        }
+
         // Retrieve the initial color value from the element
         const value = getValueFromElement($element);
 
@@ -1211,6 +1269,10 @@
         // Optionally close the dropdown if specified
         if (closeOpenDropdown) {
             closeDropdown($element, dropdown);
+        }
+
+        if (triggerEvent) {
+            trigger($element, triggerEvent, $element.data('selected'));
         }
 
         if (settings.debug) {
@@ -1655,7 +1717,7 @@
 
         // Get settings for customization
         const settings = getSettings($element);
-
+        const disabled = settings.disabled || $element.prop('disabled') ? 'disabled' : '';
         // Create the dropdown container and insert it after the element
         const dropdown = $('<div>', {
             class: `${classDropdown} dropdown`,
@@ -1666,7 +1728,7 @@
         $element.appendTo(dropdown);
 
         // Define and append the toggling button with optional text and canvas for color preview
-        let btnText = settings.btnText ? `<div class="mx-1 text-wrap text-start" style="flex: 1; min-width: 0;">${settings.btnText}</div>` : '';
+        let btnText = settings.btnText ? settings.btnText : '';
         const button = $('<button>',
             {
                 html: [
@@ -1674,11 +1736,11 @@
                     '<div style="width:20px; height:20px; position:relative; flex-shrink: 0;" class="mr-1 me-1 rounded-circle shadow">',
                     '<canvas width="20" height="20" style="position:absolute; border-radius:50%; top:0; left:0;"></canvas>',
                     '</div>',
-                    btnText,
+                    `<div class="mx-1 text-wrap text-start ${classDropdownButton}" style="flex: 1; min-width: 0;">${btnText}</div>`,
                     '</div>'
                 ].join(''),
                 type: 'button',
-                class: `btn dropdown-toggle ${settings.btnClass} d-flex align-items-center`,
+                class: `btn dropdown-toggle ${settings.btnClass} d-flex align-items-center ${disabled}`,
                 'data-toggle': 'dropdown',
                 'data-bs-toggle': 'dropdown',
                 'data-bs-auto-close': 'false',
@@ -1729,14 +1791,22 @@
 
         // Close button
         $('<button>', {
-            html: `<i class="${settings.icons.close}"></i>`, type: 'button', class: 'btn btn-link', click: function () {
+            html: `<i class="${settings.icons.close}"></i>`, type: 'button', class: 'btn', click: function () {
                 resetColor($element, true, 'cancel'); // Reset and close
+            },
+        }).appendTo($controllContainer);
+
+        // Delete color button
+        $('<button>', {
+            html: `<i class="${settings.icons.empty}"></i>`, type: 'button', class: 'btn', click: function () {
+                setValue($element, null, false, false);
+                trigger($element, 'empty');
             },
         }).appendTo($controllContainer);
 
         // Reset button
         $('<button>', {
-            html: `<i class="${settings.icons.reset}"></i>`, type: 'button', class: 'btn btn-link', click: function () {
+            html: `<i class="${settings.icons.reset}"></i>`, type: 'button', class: 'btn', click: function () {
                 resetColor($element, false, 'reset'); // Only reset
             },
         }).appendTo($controllContainer);
@@ -1745,7 +1815,7 @@
         $('<button>', {
             html: `<i class="${settings.icons.check}"></i>`,
             type: 'button',
-            class: 'btn btn-link ' + submitBtnClass
+            class: 'btn ' + submitBtnClass
         }).appendTo($controllContainer);
     }
 
