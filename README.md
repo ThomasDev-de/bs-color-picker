@@ -25,13 +25,17 @@ transparency.
 
 ## Dependencies
 
-- jQuery 3.x
-- Bootstrap 4.x | 5.x
-- Bootstrap Icons
+- jQuery ^3
+- Bootstrap ^4 | ^5
+- Bootstrap Icons ^1 (optional)
 
 ## Installation
+1. Install the package via Composer:
 
-1. Include the required dependencies in your HTML:
+```shell
+composer require webcito/bs-color-picker
+````
+2Include the required dependencies in your HTML:
 
 ```html
 <!-- Bootstrap CSS -->
@@ -50,7 +54,7 @@ transparency.
 <script src="dist/bs-color-picker.min.js"></script>
 ```
 
-2. Create an input element in your HTML:
+3Create an input element in your HTML:
 
 ```html
 <input type="text" id="colorPicker">
@@ -64,87 +68,117 @@ transparency.
 $('#colorPicker').bsColorPicker();
 ```
 
-### With Custom Options
-
-```javascript
-$('#colorPicker').bsColorPicker({
-    btnClass: 'btn-light',
-    btnText: 'Change color',
-    format: 'rgba'
-});
-```
 
 ## Configuration Options
 
-| Option          | Type    | Default                 | Description                                         |
-|-----------------|---------|-------------------------|-----------------------------------------------------|
-| `btnClass`      | string  | 'btn-outline-secondary' | Bootstrap button class for the color picker trigger |
-| `btnText`       | string  | null                    | Custom text for the color picker button             |
-| `btnEmptyColor` | string  | 'rgba(0, 0, 0, 0.5)'    | Color used when no color is selected                |
-| `format`        | string  | 'rgba'                  | Color format (hex, rgb, rgba, hsl, hsla, cmyk)      |
-| `disabled`      | boolean | false                   | Set the dropdown disabled or not                    |
-| `debug`         | boolean | true                    | Enable/disable debug logging                        |
-| `icons`         | object  | see below               |                                                     |
-
-## Icons Configuration
-
-Custom icons can be configured using Bootstrap Icons classes:
 
 ```javascript
 $('#colorPicker').bsColorPicker({
-    icons: {
-        check: 'bi bi-check-lg fw-bold',
-        reset: 'bi bi-arrow-clockwise',
-        close: 'bi bi-x-lg',
-        empty: 'bi bi-trash3'
-    }
+    btnClass: 'btn-outline-secondary', // The classes for the dropdown button
+    btnText: null, // Button-Text
+    btnEmptyColor: 'rgba(0, 0, 0, 0.5)', // The color for the button when no active color is found.
+    format: 'rgba', // The output format, which is to be transferred to the input element.
+    disabled: false, // Set the dropdown enabled or disabled.
+    icons: { // icons for the action buttons
+        check: 'bi bi-check-lg', // the color takes over from the picker to the element.
+        reset: 'bi bi-arrow-clockwise', // reset the color to the condition when opening the dropdown
+        close: 'bi bi-x-lg', // closes the color picker without a change
+        empty: 'bi bi-trash3' // Sets the color to null
+    },
+    debug: false // Activates some useful debugion formations in the Windows.console
 });
 ```
 
-## Methods
-
-### Set Defaults
-
-Set default options for all instances:
+## Global Methods
 
 ```javascript
+// Set default options for all instances:
 $.bsColorPicker.setDefaults({
     btnClass: 'btn-primary',
-    format: 'hex'
+    format: 'hex',
+    ...
 });
+// Gives back the current default options for the color-picker.
+$.bsColorPicker.getDefaults(); // :object
+// Gives the permitted format back
+$.bsColorPicker.utils.getValidOutputFormates(); // :array
+// Check a format for validity
+$.bsColorPicker.utils.isValidOutputFormat('rgb'); // :boolean
+// Formats a color string in the possible color formats as an object
+$.bsColorPicker.utils.convertColorFormats('red'); // :array
+// Check whether a value is empty
+$.bsColorPicker.utils.isValueEmpty(null); // :boolean
+// Gives back an object with all the color names
+$.bsColorPicker.utils.getColorNames(); // :object {{'colorName': 'hexValue'}, ...}
+// gibt die Farbe im Format hex zurück
+$.bsColorPicker.utils.colorNameToHex('red'); // :null|string p.e. #ff0000
 ```
 
-### Get Defaults
-
-Retrieve current default settings:
+## Plugin methods
 
 ```javascript
-const defaults = $.bsColorPicker.getDefaults();
-```
-
-## Methods
-
-```javascript
-$('#colorPicker').bsColorPicker('val', 'red');
-$('#colorPicker').bsColorPicker('updateOptions', { btnText: 'beautiful color :)'});
-$('#colorPicker').bsColorPicker('destroy');
+$('#colorPicker').bsColorPicker('val'); // get the value in output format -> #ff0000
+$('#colorPicker').bsColorPicker('val', 'red'); // set a color
+$('#colorPicker').bsColorPicker('getColor'); // return a set of colors for the selected color
+$('#colorPicker').bsColorPicker('updateOptions', { btnText: 'beautiful color :)'}); // update options
+$('#colorPicker').bsColorPicker('destroy'); // destroy the picker
 ```
 
 ## Events
 
 The plugin triggers the following events:
 
-- `colorchange`: Fired when a color is selected
-- `open`: Fired when the picker opens
-- `close`: Fired when the picker closes
-
-Example usage:
-
 ```javascript
-$('#colorPicker').on('colorchange', function (e, color) {
-    console.log('New color selected:', color);
-});
+$('#colorPicker')
+    .on('change.bs.colorPicker', function (e, data) {
+        // Fires when the value of the input changes.
+        // Data is the selected color in the output format as a string or null if no color is present
+    })
+    .on('update.bs.colorPicker', function (e, data) {
+        // Fires at every color change in the color picker.
+        // Data is an object with all available color formats of the current color.
+    })
+    .on('all.bs.colorPicker', function () {
+        // Fires additionally at every event
+    })
+    .on('error.bs.colorPicker', function (e, data) {
+        logEvent('error.bs.colorPicker', data);
+    })
+    .on('init.bs.colorPicker', function () {
+        logEvent('init.bs.colorPicker');
+    })
+    .on('show.bs.colorPicker', function () {
+        logEvent('show.bs.colorPicker');
+    })
+    .on('shown.bs.colorPicker', function () {
+        logEvent('shown.bs.colorPicker');
+    })
+    .on('hide.bs.colorPicker', function () {
+        logEvent('hide.bs.colorPicker');
+    })
+    .on('hidden.bs.colorPicker', function () {
+        logEvent('hidden.bs.colorPicker');
+    })
+    .on('reset.bs.colorPicker', function (e, data) {
+        logEvent('reset.bs.colorPicker', 'details on console');
+        if (data) {
+            setBodyGradient(data.rgba);
+        }
+        console.log('reset.bs.colorPicker', data);
+    })
+    .on('cancel.bs.colorPicker', function (e, data) {
+        logEvent('cancel.bs.colorPicker', 'details on console');
+        const colorSet = colorPicker.bsColorPicker('getColor');
+        console.log('cancel.bs.colorPicker', data);
+        setBodyGradient(colorSet ? colorSet.rgba : null);
+
+    })
+    .on('empty.bs.colorPicker', function (e, data) {
+        logEvent('empty.bs.colorPicker', data);
+        setBodyGradient(null);
+    });
 ```
+
 
 ## Browser Support
 
