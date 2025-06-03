@@ -1663,7 +1663,12 @@
         // Bind event listeners to the document for global mouse interactions
         $(document)
             // Handle mouse move events to update active control areas
-            .on('mousemove', function (e) {
+            .on('mousemove.bs.colorPicker', function (e) {
+                if (!isColorPickerInDOM($element)) {
+                    removeEventListeners(); // Entferne Listener, wenn Element nicht mehr existiert
+                    return;
+                }
+
                 const vars = getVars($element);
                 const activeControl = vars.activeControl;
 
@@ -1687,7 +1692,12 @@
                 }
             })
             // Handle mouse up events to disable active controls
-            .on('mouseup', function () {
+            .on('mouseup.bs.colorPicker', function () {
+                if (!isColorPickerInDOM($element)) {
+                    removeEventListeners(); // Entferne Listener, wenn Element nicht mehr existiert
+                    return;
+                }
+
                 const vars = getVars($element);
                 const activeControl = vars.activeControl;
 
@@ -1698,6 +1708,17 @@
 
                 setVar($element, 'activeControl', null); // Reset active control
             });
+    }
+
+    // Funktion zum Entfernen der Eventlistener
+    function removeEventListeners() {
+        $(document).off('.bs.colorPicker'); // Entfernt alle Events mit dem Namespace .bs.colorPicker
+    }
+
+
+// Überprüfen ob der Colorpicker noch im DOM ist
+    function isColorPickerInDOM($element) {
+        return $.contains(document, $element[0]);
     }
 
     function getBootstrapVersion() {
