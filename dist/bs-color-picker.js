@@ -69,6 +69,14 @@
             debug: false
         },
         utils: {
+            isDarkColor(rgb) {
+                // RGB-Werte normalisieren
+                const { r, g, b } = rgb;
+                const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+
+                // Schwellenwert für eine dunkle Farbe (128 ist der Mittelwert)
+                return luminance < 128; // Rückgabe: true = dunkel, false = hell
+            },
             /**
              * Retrieves the list of valid output formats for colors.
              *
@@ -595,6 +603,7 @@
                     return null;
                 }
                 try {
+                    let isDark = null; // Variable für isDark hinzugefügt
                     let rgb = null;
                     let rgba = null;
                     let hsv = null;
@@ -607,7 +616,7 @@
                             console.log("customColor is a string", customColor);
                         }
 
-                        // Kontrollierte Korrektur für bekannte Tippfehler
+                        // Kontrolliere und korrigiere Tippfehler
                         customColor = customColor.trim();
                         if (customColor.startsWith("rbga")) {
                             customColor = customColor.replace("rbga", "rgba");
@@ -616,8 +625,7 @@
                             }
                         }
 
-
-                        // HEX Color Handling
+                        // HEX-Format verarbeiten
                         if (customColor.startsWith("#")) {
                             if (debug) {
                                 console.log("customColor starts with #");
@@ -639,14 +647,15 @@
                                     console.log("hex -> rgba =", rgba);
                                     console.log("hex -> alpha =", alpha);
                                 }
+                                // Bestimme, ob die Farbe dunkel ist
+                                isDark = $.bsColorPicker.utils.isDarkColor(rgb);
                             }
                         }
-                        // RGBA or RGB Color Handling
+                        // RGBA oder RGB-Format verarbeiten
                         else if (customColor.includes(",")) {
                             if (debug) {
                                 console.log("customColor includes ,");
                             }
-                            // Check for RGBA format
                             const rgbaMatch = customColor.match(
                                 /rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(?:,\s*((?:0?\.\d+)|1|0)\s*)?\)/
                             );
@@ -661,16 +670,12 @@
                                         ? parseFloat(rgbaMatch[4])
                                         : 1;
 
-                                // Validations for RGBA values
+                                // Validierung der RGBA-Werte
                                 if (
-                                    r < 0 ||
-                                    r > 255 ||
-                                    g < 0 ||
-                                    g > 255 ||
-                                    b < 0 ||
-                                    b > 255 ||
-                                    a < 0 ||
-                                    a > 1
+                                    r < 0 || r > 255 ||
+                                    g < 0 || g > 255 ||
+                                    b < 0 || b > 255 ||
+                                    a < 0 || a > 1
                                 ) {
                                     console.error("RGBA values out of range:", rgbaMatch);
                                     return null;
@@ -686,8 +691,10 @@
                                     ...rgb,
                                     a: alpha,
                                 };
+                                // Bestimme, ob die Farbe dunkel ist
+                                isDark = $.bsColorPicker.utils.isDarkColor(rgb);
                             } else {
-                                // Check for HSLA format
+                                // Verarbeite HSLA-Format
                                 const hslaMatch = customColor.match(
                                     /hsla?\(\s*(\d+)\s*,\s*(\d+)%\s*,\s*(\d+)%\s*(?:,\s*(0|0?\.\d+|1))?\)/
                                 );
@@ -702,16 +709,12 @@
                                             ? parseFloat(hslaMatch[4])
                                             : 1;
 
-                                    // Validations for HSLA values
+                                    // Validierung der HSLA-Werte
                                     if (
-                                        h < 0 ||
-                                        h >= 360 ||
-                                        s < 0 ||
-                                        s > 1 ||
-                                        l < 0 ||
-                                        l > 1 ||
-                                        a < 0 ||
-                                        a > 1
+                                        h < 0 || h >= 360 ||
+                                        s < 0 || s > 1 ||
+                                        l < 0 || l > 1 ||
+                                        a < 0 || a > 1
                                     ) {
                                         console.error("HSLA values out of range:", hslaMatch);
                                         return null;
@@ -722,11 +725,7 @@
                                     }
 
                                     alpha = parseFloat(a.toFixed(2));
-                                    hsl = {
-                                        h: h,
-                                        s: s,
-                                        l: l,
-                                    };
+                                    hsl = {h, s, l};
                                     hsla = {
                                         ...hsl,
                                         a: alpha,
@@ -737,7 +736,7 @@
                                         console.log("hsla -> alpha =", hsla.a);
                                     }
 
-                                    // Convert HSL to RGB
+                                    // Konvertiere HSL in RGB
                                     rgb = $.bsColorPicker.utils.hslToRGB(hsl, debug);
                                     if (rgb) {
                                         rgba = {
@@ -749,14 +748,16 @@
                                             console.log("hsl -> rgb =", rgb);
                                             console.log("hsla -> rgba =", rgba);
                                         }
+                                        // Bestimme, ob die Farbe dunkel ist
+                                        isDark = $.bsColorPicker.utils.isDarkColor(rgb);
                                     }
                                 }
                             }
                         }
-                        // Handle named colors (e.g., "red", "blue")
+                        // Benannte Farben verarbeiten (z. B. "red", "blue")
                         else {
                             if (debug) {
-                                console.log("customColor is a unknown string");
+                                console.log("customColor is a named color");
                             }
                             const namedColorHex = this.colorNameToHex(customColor);
                             if (namedColorHex) {
@@ -781,15 +782,13 @@
                         }
                     }
 
-                    // Convert RGB to HSV if not already calculated
+                    // Konvertiere RGB in andere Farbräume
                     if (rgb && !hsv) {
                         hsv = $.bsColorPicker.utils.RGBtoHSV(rgb.r, rgb.g, rgb.b);
                         if (debug) {
                             console.log("rgb -> hsv =", hsv);
                         }
                     }
-
-                    // Convert RGB to HSL if not already calculated
                     if (rgb && !hsl) {
                         hsl = $.bsColorPicker.utils.RGBtoHSL(rgb.r, rgb.g, rgb.b);
                         hsla = {
@@ -802,7 +801,7 @@
                         }
                     }
 
-                    // CMYK conversion
+                    // Konvertiere in CMYK und HEX
                     const cmyk = rgb
                         ? $.bsColorPicker.utils.RGBtoCMYK(rgb.r, rgb.g, rgb.b)
                         : null;
@@ -810,7 +809,6 @@
                         console.log("rgb -> cmyk =", cmyk);
                     }
 
-                    // Generate HEX if RGB exists
                     const hex = rgba
                         ? $.bsColorPicker.utils.RGBtoHex(rgba.r, rgba.g, rgba.b, rgba.a)
                         : null;
@@ -818,8 +816,9 @@
                         console.log("rgb -> hex =", hex);
                     }
 
-                    // Return all color formats
+                    // Rückgabe aller Farbinformationen
                     const returnData = {
+                        isDark, // Füge isDark hinzu
                         hex,
                         rgb,
                         rgba,
@@ -836,10 +835,7 @@
                     return returnData;
                 } catch (e) {
                     if (debug) {
-                        console.error(
-                            "Invalid color format in function convertColorFormats:",
-                            e
-                        );
+                        console.error("Invalid color format:", e);
                         console.log('----------------- convertColorFormats completed -----------------');
                     }
                     return null;
@@ -1041,7 +1037,9 @@
                             log(`setValue newValue to format (${newFormat}) =`, newValue);
                         }
                         $element.val(newValue);
-                        trigger($element, 'change', newValue);
+                        const color = $.bsColorPicker.utils.convertColorFormats(newValue, settings.debug);
+                        trigger($element, 'change', color);
+                        // trigger($element, 'change', newValue);
                         settings = getSettings($element);
                     } else {
                         if (debug) {
@@ -1453,7 +1451,7 @@
     async function setValue($element, value, triggerChange = true, updateButton = false) {
         const settings = getSettings($element);
         let success = false;
-
+        let color = null;
         if (settings.debug) {
             log('setValue called', value);
         }
@@ -1461,7 +1459,7 @@
         try {
             if (value) {
                 // Farbkonvertierung mit settings.debug
-                const color = $.bsColorPicker.utils.convertColorFormats(value, settings.debug);
+                color = $.bsColorPicker.utils.convertColorFormats(value, settings.debug);
 
                 if (settings.debug) {
                     log('setValue color =', color);
@@ -1507,7 +1505,8 @@
 
         // Change-Event nur auslösen, wenn keine Fehler aufgetreten sind
         if (success && triggerChange) {
-            trigger($element, 'change', value);
+            // trigger($element, 'change', value);
+            trigger($element, 'change', color);
         }
 
         if (settings.debug) {
