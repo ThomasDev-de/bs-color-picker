@@ -45,11 +45,26 @@
             btnEmptyColor: 'rgba(0, 0, 0, 0.5)',
             format: 'rgba',
             disabled: false,
+            hideInputs: false,
             icons: {
                 check: 'bi bi-check-lg',
                 reset: 'bi bi-arrow-clockwise',
                 close: 'bi bi-x-lg',
                 empty: 'bi bi-trash3'
+            },
+            buttons: {
+                check: {
+                    icon: 'bi bi-check-lg',
+                },
+                reset: {
+                    icon: 'bi bi-arrow-clockwise',
+                },
+                close: {
+                    icon: 'bi bi-x-lg',
+                },
+                empty: {
+                    icon: 'bi bi-trash3'
+                }
             },
             debug: false
         },
@@ -954,7 +969,7 @@
                     break;
                 }
                 default: {
-                    trigger($element,'error', 'Unknown method: ' + optionsOrMethod);
+                    trigger($element, 'error', 'Unknown method: ' + optionsOrMethod);
                     break;
                 }
             }
@@ -1164,7 +1179,7 @@
         }
 
         // Make sure that a valid output format is always available
-        if (! settings.hasOwnProperty('format') || !$.bsColorPicker.utils.isValidOutputFormat(settings.format)) {
+        if (!settings.hasOwnProperty('format') || !$.bsColorPicker.utils.isValidOutputFormat(settings.format)) {
             settings.format = fallbackFormat;
         }
 
@@ -1804,48 +1819,67 @@
                 margin: 0,
             }, class: classCanvas, width: canvasTotalWidth, height: vars.size,
         }).appendTo($colorContainer);
+        if (!settings.hideInputs) {
+            // Create a container for the input fields and add the various color format inputs
+            const $inputsContainer = $('<div>', {class: 'p-2 d-flex flex-column align-items-center w-100'}).appendTo($colorContainer);
 
-        // Create a container for the input fields and add the various color format inputs
-        const $inputsContainer = $('<div>', {class: 'p-2 d-flex flex-column align-items-center w-100'}).appendTo($colorContainer);
-        createInputGroup('HEX', '#ff0000', $inputsContainer);
-        createInputGroup('RGBA', '255, 0, 0', $inputsContainer);
-        createInputGroup('CMYK', '0, 100, 100, 0', $inputsContainer);
-        createInputGroup('HSV', '0, 100, 100', $inputsContainer);
-        createInputGroup('HSLA', '0, 100, 50', $inputsContainer);
+            createInputGroup('HEX', '#ff0000', $inputsContainer);
+            createInputGroup('RGBA', '255, 0, 0', $inputsContainer);
+            createInputGroup('CMYK', '0, 100, 100, 0', $inputsContainer);
+            createInputGroup('HSV', '0, 100, 100', $inputsContainer);
+            createInputGroup('HSLA', '0, 100, 50', $inputsContainer);
 
+
+        }
         // Add control buttons (close, reset, apply) below the input fields
         const $controllContainer = $('<div>', {
             class: 'd-flex mt-2 btn-group w-100 btn-group-sm justify-content-between align-items-center',
-        }).appendTo($inputsContainer);
+        }).appendTo($colorContainer);
 
-        // Close button
-        $('<button>', {
-            html: `<i class="${settings.icons.close}"></i>`, type: 'button', class: 'btn', click: function () {
-                resetColor($element, true, 'cancel'); // Reset and close
-            },
-        }).appendTo($controllContainer);
+        if (settings.buttons.close && typeof settings.buttons.close === 'object') {
+            // Close button
+            $('<button>', {
+                html: `<i class="${settings.buttons.close.icon}"></i>`,
+                type: 'button',
+                class: 'btn',
+                click: function () {
+                    resetColor($element, true, 'cancel'); // Reset and close
+                },
+            }).appendTo($controllContainer);
+        }
 
-        // Delete color button
-        $('<button>', {
-            html: `<i class="${settings.icons.empty}"></i>`, type: 'button', class: 'btn', click: function () {
-                setValue($element, null, false, false);
-                trigger($element, 'empty');
-            },
-        }).appendTo($controllContainer);
+        if (settings.buttons.empty && typeof settings.buttons.empty === 'object') {
+            // Delete color button
+            $('<button>', {
+                html: `<i class="${settings.buttons.empty.icon}"></i>`,
+                type: 'button',
+                class: 'btn',
+                click: function () {
+                    setValue($element, null, false, false);
+                    trigger($element, 'empty');
+                },
+            }).appendTo($controllContainer);
+        }
 
-        // Reset button
-        $('<button>', {
-            html: `<i class="${settings.icons.reset}"></i>`, type: 'button', class: 'btn', click: function () {
-                resetColor($element, false, 'reset'); // Only reset
-            },
-        }).appendTo($controllContainer);
-
-        // Apply button
-        $('<button>', {
-            html: `<i class="${settings.icons.check}"></i>`,
-            type: 'button',
-            class: 'btn ' + submitBtnClass
-        }).appendTo($controllContainer);
+        if (settings.buttons.reset && typeof settings.buttons.reset === 'object') {
+            // Reset button
+            $('<button>', {
+                html: `<i class="${settings.buttons.reset.icon}"></i>`,
+                type: 'button',
+                class: 'btn',
+                click: function () {
+                    resetColor($element, false, 'reset'); // Only reset
+                },
+            }).appendTo($controllContainer);
+        }
+        if (settings.buttons.check && typeof settings.buttons.check === 'object') {
+            // Apply button
+            $('<button>', {
+                html: `<i class="${settings.buttons.check.icon}"></i>`,
+                type: 'button',
+                class: 'btn ' + submitBtnClass
+            }).appendTo($controllContainer);
+        }
     }
 
     /**
@@ -2584,8 +2618,11 @@
      */
     function updateAllInputs($element, data) {
         // Get the dropdown menu associated with the specified color picker element ($element).
-        const $dropdown = getDropdown($element);
         const settings = getSettings($element);
+        if (settings.hideInputs) {
+            return;
+        }
+        const $dropdown = getDropdown($element);
         let rgba = data ? data.rgba : null;
 
         // Object containing selectors for each input field in the dropdown menu, mapped to their corresponding data roles.

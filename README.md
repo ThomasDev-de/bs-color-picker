@@ -75,12 +75,13 @@ $('#colorPicker').bsColorPicker({
     btnText: null, // Button-Text
     btnEmptyColor: 'rgba(0, 0, 0, 0.5)', // The color for the button when no active color is found.
     format: 'rgba', // The output format, which is to be transferred to the input element.
+    hideInputs: false, // If set to true, the information and input fields for manual editing will not be generated.. 
     disabled: false, // Set the dropdown enabled or disabled.
-    icons: { // icons for the action buttons
-        check: 'bi bi-check-lg', // the color takes over from the picker to the element.
-        reset: 'bi bi-arrow-clockwise', // reset the color to the condition when opening the dropdown
-        close: 'bi bi-x-lg', // closes the color picker without a change
-        empty: 'bi bi-trash3' // Sets the color to null
+    buttons: { // Action buttons. If a button is null or false, it will not be displayed.
+        check: {icon: 'bi bi-check-lg'}, // the color takes over from the picker to the element.
+        reset: {icon: 'bi bi-arrow-clockwise'}, // reset the color to the condition when opening the dropdown
+        close: {icon: 'bi bi-x-lg'}, // closes the color picker without a change
+        empty: {icon: 'bi bi-trash3'} // Sets the color to null
     },
     debug: false // Activates some useful debugion formations in the Windows.console
 });
