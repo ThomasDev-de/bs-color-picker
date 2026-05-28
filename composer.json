@@ -11,7 +11,7 @@
     }
   ],
   "require": {
-    "components/jquery": "^3.7",
+    "components/jquery": "^3.6 || ^3.7",
     "twbs/bootstrap": "^5"
   },
   "require-dev": {
