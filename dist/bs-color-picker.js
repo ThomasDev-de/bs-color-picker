@@ -1805,6 +1805,9 @@
         const dropdownMenu = $('<div>', {
             class: 'dropdown-menu p-3',
             css: {
+                width: 'max-content',
+                maxWidth: '100vw',
+                boxSizing: 'border-box',
                 overflowX: 'auto',
             },
         }).appendTo(dropdown);
