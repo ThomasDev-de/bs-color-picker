@@ -903,6 +903,10 @@
 
             const vars = {
                 bootstrapVersion: getBootstrapVersion(),
+                baseSize: 200,
+                basePreviewSize: 50,
+                baseSliderWidth: 14,
+                basePadding: 10,
                 size: 200, // Farbfeld
                 previewSize: 50, // Vorschau
                 sliderWidth: 14, // width of slider hue & opacity
@@ -1162,6 +1166,57 @@
             log('calcTotalWidth completed')
         }
         return total;
+    }
+
+    /**
+     * Keeps the picker inside the viewport by reducing the actual canvas layout on narrow screens.
+     * The canvas is not CSS-scaled; drawing dimensions and hit testing use the same values.
+     *
+     * @param {jQuery} $element - The jQuery object of the related element.
+     * @returns {number} The applied total canvas width.
+     */
+    function applyResponsiveCanvasLayout($element) {
+        const vars = getVars($element);
+        const viewportWidth = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+        const dropdownPadding = 32; // Bootstrap .p-3: 1rem left + 1rem right.
+        const availableWidth = viewportWidth ? Math.max(160, viewportWidth - dropdownPadding) : calcTotalWidth($element);
+        const baseSize = vars.baseSize || 200;
+        const basePreviewSize = vars.basePreviewSize || 50;
+        const baseSliderWidth = vars.baseSliderWidth || 14;
+        const basePadding = vars.basePadding || 10;
+        const baseTotalWidth = basePreviewSize + (basePadding * 3) + baseSize + (baseSliderWidth * 2);
+
+        if (baseTotalWidth <= availableWidth) {
+            vars.size = baseSize;
+            vars.previewSize = basePreviewSize;
+            vars.sliderWidth = baseSliderWidth;
+            vars.padding = basePadding;
+        } else {
+            const scale = availableWidth / baseTotalWidth;
+            vars.size = Math.max(80, Math.floor(baseSize * scale));
+            vars.previewSize = Math.max(30, Math.floor(basePreviewSize * scale));
+            vars.sliderWidth = Math.max(10, Math.floor(baseSliderWidth * scale));
+            vars.padding = Math.max(6, Math.floor(basePadding * scale));
+
+            // If minimum dimensions still overflow on very narrow screens, shrink the main area last.
+            while (calcTotalWidth($element) > availableWidth && vars.size > 60) {
+                vars.size -= 1;
+            }
+        }
+
+        $element.data('vars', vars);
+
+        const canvasWidth = calcTotalWidth($element);
+        const canvas = getCanvas($element).get(0);
+        if (canvas) {
+            canvas.width = canvasWidth;
+            canvas.height = vars.size;
+            canvas.style.width = `${canvasWidth}px`;
+            canvas.style.height = `${vars.size}px`;
+            canvas.style.flex = `0 0 ${canvasWidth}px`;
+        }
+
+        return canvasWidth;
     }
 
     /**
@@ -1639,9 +1694,9 @@
 
                 trigger($element, 'shown');
                 const currentElementValue = getValueFromElement($element);
-                const vars = getVars($element);
                 const canvas = getCanvas($element).get(0);
-                const canvasWidth = calcTotalWidth($element);
+                const canvasWidth = applyResponsiveCanvasLayout($element);
+                const vars = getVars($element);
                 canvas.width = canvasWidth; // Set canvas width dynamically
                 canvas.height = vars.size; // Set canvas height dynamically
                 canvas.style.width = `${canvasWidth}px`;
@@ -1765,6 +1820,8 @@
      */
     function buildDropdown($element) {
         const vars = getVars($element);
+
+        applyResponsiveCanvasLayout($element);
 
         // Calculate the total width for the canvas
         const canvasTotalWidth = calcTotalWidth($element);
