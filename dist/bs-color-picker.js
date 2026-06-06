@@ -1641,8 +1641,11 @@
                 const currentElementValue = getValueFromElement($element);
                 const vars = getVars($element);
                 const canvas = getCanvas($element).get(0);
-                canvas.width = calcTotalWidth($element); // Set canvas width dynamically
+                const canvasWidth = calcTotalWidth($element);
+                canvas.width = canvasWidth; // Set canvas width dynamically
                 canvas.height = vars.size; // Set canvas height dynamically
+                canvas.style.width = `${canvasWidth}px`;
+                canvas.style.height = `${vars.size}px`;
                 if (!$.bsColorPicker.utils.isValueEmpty(currentElementValue)) {
                     await updateColor($element, false);
 
@@ -1650,11 +1653,17 @@
                     updateColorToNull($element, false, false);
                 }
             })
-            .on('mousedown', '.' + classCanvas, function (e) {
+            .on('pointerdown', '.' + classCanvas, function (e) {
+                e.preventDefault();
 
                 dropdown.data('isInsideCanvas', true);
                 if (settings.debug) {
-                    log('event mousedown on', classCanvas, $element);
+                    log('event pointerdown on', classCanvas, $element);
+                }
+
+                const pointerEvent = e.originalEvent || e;
+                if (e.currentTarget.setPointerCapture && pointerEvent.pointerId !== undefined) {
+                    e.currentTarget.setPointerCapture(pointerEvent.pointerId);
                 }
 
                 // Get the mouse position relative to the canvas
@@ -1674,10 +1683,10 @@
                 }
             });
 
-        // Bind event listeners to the document for global mouse interactions
+        // Bind event listeners to the document for global pointer interactions
         $(document)
-            // Handle mouse move events to update active control areas
-            .on('mousemove.bs.colorPicker', function (e) {
+            // Handle pointer move events to update active control areas
+            .on('pointermove.bs.colorPicker', function (e) {
                 if (!isColorPickerInDOM($element)) {
                     removeEventListeners(); // Entferne Listener, wenn Element nicht mehr existiert
                     return;
@@ -1687,6 +1696,7 @@
                 const activeControl = vars.activeControl;
 
                 if (!activeControl) return; // If no active control, exit
+                e.preventDefault();
 
                 const drop = getDropdown($element);
                 if (!drop.length) return;
@@ -1705,8 +1715,8 @@
                     handleOpacityClick($element, pos);
                 }
             })
-            // Handle mouse up events to disable active controls
-            .on('mouseup.bs.colorPicker', function () {
+            // Handle pointer up/cancel events to disable active controls
+            .on('pointerup.bs.colorPicker pointercancel.bs.colorPicker', function (e) {
                 if (!isColorPickerInDOM($element)) {
                     removeEventListeners(); // Entferne Listener, wenn Element nicht mehr existiert
                     return;
@@ -1716,6 +1726,7 @@
                 const activeControl = vars.activeControl;
 
                 if (!activeControl) return; // If no active control, exit
+                e.preventDefault();
 
                 const drop = getDropdown($element);
                 if (!drop.length) return;
@@ -1793,6 +1804,9 @@
         // Create the dropdown menu and append it
         const dropdownMenu = $('<div>', {
             class: 'dropdown-menu p-3',
+            css: {
+                overflowX: 'auto',
+            },
         }).appendTo(dropdown);
 
         // Create the container for the color wheel and inputs
@@ -1816,6 +1830,11 @@
                 border: 'none',
                 padding: 0,
                 margin: 0,
+                display: 'block',
+                flex: `0 0 ${canvasTotalWidth}px`,
+                maxWidth: 'none',
+                touchAction: 'none',
+                userSelect: 'none',
             }, class: classCanvas, width: canvasTotalWidth, height: vars.size,
         }).appendTo($colorContainer);
         if (!settings.hideInputs) {
