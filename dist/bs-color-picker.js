@@ -1962,7 +1962,7 @@
 
     /**
      * Updates the color displayed on the color picker button, rendering it onto the canvas element.
-     * This function draws a checkerboard background (representing transparency) and overlays the selected color.
+     * This function draws the selected color onto the button preview canvas.
      *
      * @param {jQuery} $element - The jQuery object representing the color picker element.
      * @param {string} colorValue - The selected color value in any valid format (e.g., hex, rgba).
@@ -1978,17 +1978,9 @@
             const ctx = canvas.getContext('2d');
             const size = canvas.width; // Canvas is assumed to be square
 
-            // 1. Draw checkerboard background for transparency visualization
-            const tileSize = 4; // Size of each tile in the checkerboard pattern
-            for (let x = 0; x < size; x += tileSize) {
-                for (let y = 0; y < size; y += tileSize) {
-                    // Alternate between light gray (#eee) and slightly darker gray (#ddd)
-                    ctx.fillStyle = (x / tileSize + y / tileSize) % 2 === 0 ? '#eee' : '#ddd';
-                    ctx.fillRect(x, y, tileSize, tileSize); // Draw the tile
-                }
-            }
+            ctx.clearRect(0, 0, size, size);
 
-            // 2. Draw the main color overlay based on the selected color value
+            // Draw the main color overlay based on the selected color value
             const color = $.bsColorPicker.utils.convertColorFormats(colorValue, settings.debug); // Convert the color value into usable formats
             let fillStyle;
             if (color && color.rgba) {
@@ -2261,8 +2253,7 @@
 
     /**
      * Draws the color preview box on the canvas.
-     * The preview box shows the currently selected color overlayed on a checkerboard background,
-     * which represents transparency.
+     * The preview box shows the currently selected color on a transparent background.
      *
      * @param {jQuery} $element - The jQuery object representing the color picker element.
      * @param {string} color - The current color in any valid CSS format (e.g., hex, rgb).
@@ -2276,19 +2267,9 @@
         const vars = getVars($element);
         const previewSize = vars.previewSize; // Size (width and height) of the preview box
 
-        if ($.bsColorPicker.utils.isValueEmpty(color)) {
-            drawTransparentBackground(context, 0, 0, vars.previewSize, vars.previewSize);
-        } else {
-            // Draw a checkerboard pattern for transparency visualization
-            for (let x = 0; x < previewSize; x += 10) {
-                for (let y = 0; y < previewSize; y += 10) {
-                    // Alternate between white (#fff) and light gray (#eee) squares
-                    context.fillStyle = (x + y) % 20 === 0 ? '#fff' : '#eee';
-                    context.fillRect(x, y, 10, 10); // Draw 10x10 pixel squares
-                }
-            }
+        context.clearRect(0, 0, previewSize, previewSize);
 
-            // Overlay the selected color on top of the checkerboard pattern
+        if (!$.bsColorPicker.utils.isValueEmpty(color)) {
             context.fillStyle = color;
             context.fillRect(0, 0, previewSize, previewSize); // Fill the entire preview box
         }
