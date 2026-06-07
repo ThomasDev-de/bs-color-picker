@@ -1862,7 +1862,8 @@
         const dropdownMenu = $('<div>', {
             class: 'dropdown-menu p-3',
             css: {
-                width: 'max-content',
+                width: 'auto',
+                minWidth: `${canvasTotalWidth + 32}px`,
                 maxWidth: '100vw',
                 boxSizing: 'border-box',
                 overflowX: 'auto',
@@ -1876,7 +1877,7 @@
                 // boxSizing: 'border-box',
                 // width: `calc(${canvasTotalWidth}px + 290px)`,
                 height: 'auto',
-                width: 'auto'
+                width: '100%'
                 // gap: '10px',
             },
         }).appendTo(dropdownMenu);
@@ -1899,7 +1900,13 @@
         }).appendTo($colorContainer);
         if (!settings.hideInputs) {
             // Create a container for the input fields and add the various color format inputs
-            const $inputsContainer = $('<div>', {class: 'p-2 d-flex flex-column align-items-center w-100'}).appendTo($colorContainer);
+            const $inputsContainer = $('<div>', {
+                class: 'p-2 d-flex flex-column align-items-center',
+                css: {
+                    flex: '1 1 200px',
+                    minWidth: '0'
+                }
+            }).appendTo($colorContainer);
 
             createInputGroup('HEX', '#ff0000', $inputsContainer);
             createInputGroup('RGBA', '255, 0, 0', $inputsContainer);
@@ -2006,7 +2013,7 @@
     function createInputGroup(label, placeholder, $inputsContainer) {
         // Create the input group container
         const $inputGroup = $('<div>', {
-            class: 'd-flex align-items-center mb-1', // Bootstrap input group classes
+            class: 'd-flex align-items-center mb-1 w-100', // Bootstrap input group classes
         }).appendTo($inputsContainer);
 
         // Create and append the label span element
@@ -2023,6 +2030,9 @@
                 borderWidth: '0 0 1px 0',    // Oben 0, rechts 0, unten 1px, links 0
                 borderStyle: 'solid',        // Definiert, dass der Rahmen solide ist
                 borderRadius: '0',           // Entfernt jegliche Rundungen
+                width: '100%',
+                minWidth: '0',
+                backgroundColor: 'transparent',
             },
             'data-role': label.toLowerCase(),         // Set data-role using lowercase label
             type: 'text',                             // Input type: text
