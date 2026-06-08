@@ -1860,7 +1860,7 @@
 
         // Create the dropdown menu and append it
         const dropdownMenu = $('<div>', {
-            class: 'dropdown-menu p-3',
+            class: 'dropdown-menu shadow border border-2 pt-3 px-3 pb-1',
             css: {
                 width: 'auto',
                 minWidth: `${canvasTotalWidth + 32}px`,
