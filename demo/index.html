@@ -8,80 +8,121 @@
     <link href="../vendor/twbs/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="../vendor/twbs/bootstrap-icons/font/bootstrap-icons.min.css" rel="stylesheet">
     <style>
+        :root {
+            --glass-bg: rgba(255, 255, 255, 0.1);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --blur-amount: 15px;
+        }
+
         body {
-            background-attachment: scroll;
-            background-repeat: no-repeat;
-            background-size: 100%;
+            background-attachment: fixed;
+            background-size: cover;
+            transition: background 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
         }
+
+        .glass-card {
+            backdrop-filter: blur(var(--blur-amount));
+            -webkit-backdrop-filter: blur(var(--blur-amount));
+            background-color: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 1.5rem;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.4);
+        }
+
         #eventLog {
-            max-height: 50vh;
+            max-height: 400px;
             overflow-y: auto;
+            font-size: 0.825rem;
+            scrollbar-width: thin;
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 0.5rem;
         }
+
+        .smaller {
+            font-size: 0.75rem;
+        }
+
+        .event-item.event-update { border-left-color: #0d6efd; }
+        .event-item.event-change { border-left-color: #198754; }
+        .event-item.event-show { border-left-color: #ffc107; }
+        .event-item.event-hide { border-left-color: #6c757d; }
+
+        .json-key { color: #888; }
+        .json-value { color: #0dcaf0; }
+        .json-string { color: #20c997; }
     </style>
 </head>
 
-<body class="container py-5 h-100">
-<div class="d-flex flex-wrap flex-lg-nowrap h-100 align-items-center align-items-lg-start justify-content-center justify-content-lg-between">
-    <div class="flex-shrink-0 p-3">
-        <div class="card border border-light rounded-5 border-5" style="width: 300px;">
-            <div class="card-header">
-                <h5 class="text-center my-3">Bootstrap Color Picker</h5>
-<!--                <p class="text-center">-->
-<!--                    <a href="https://github.com/ThomasDev-de/bs-color-picker" target="_blank"-->
-<!--                       class="btn btn-outline-primary btn-lg rounded-pill">-->
-<!--                        <i class="bi bi-github"></i>-->
-<!--                        GitHub-->
-<!--                    </a>-->
-<!--                </p>-->
-                <div class="form-group mb-3">
-                    <label class="w-100">
-                        <input id="colorPicker" type="text" name="color" value="#007bff"
-                               data-btn-class="btn-outline-light d-block w-100"
-                               class="form-control">
-                    </label>
+<body>
+
+<div class="container py-5">
+    <div class="row g-4 align-items-stretch">
+        <div class="col-lg-5">
+            <div class="glass-card p-4 h-100">
+                <div class="text-center mb-4">
+                    <h2 class="fw-bold mb-1">Color Picker</h2>
+                    <p class="text-muted small">Modern & Responsive Bootstrap Plugin</p>
+                </div>
+
+                <div class="mb-4">
+                    <input id="colorPicker" type="text" name="color" value="#0d6efd"
+                           data-btn-class="btn-primary btn-lg d-block w-100 rounded-pill shadow"
+                           class="form-control">
+                </div>
+
+                <hr class="my-4 opacity-10">
+
+                <form id="optionsForm">
+                    <div class="form-floating mb-3">
+                        <select class="form-select border-0 bg-opacity-10 bg-dark" name="format" id="selectOutputFormat">
+                            <option value="rgba">RGBA</option>
+                            <option value="rgb">RGB</option>
+                            <option value="hex" selected>HEX</option>
+                            <option value="hsl">HSL</option>
+                            <option value="hsla">HSLA</option>
+                        </select>
+                        <label for="selectOutputFormat">Output Format</label>
+                    </div>
+
+                    <div class="form-floating mb-3">
+                        <input type="text" name="btnText" class="form-control border-0 bg-opacity-10 bg-dark"
+                               value="Pick a Color" id="selectOutputBtnText" placeholder="Button Text">
+                        <label for="selectOutputBtnText">Button Text</label>
+                    </div>
+
+                    <div class="form-check form-switch mb-4">
+                        <input class="form-check-input" name="disabled" type="checkbox" role="switch" id="switchDisabled">
+                        <label class="form-check-label" for="switchDisabled">Disabled state</label>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 rounded-pill py-3 fw-bold shadow-sm hover-lift">
+                        Apply Configuration
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <div class="glass-card p-0 overflow-hidden h-100 d-flex flex-column">
+                <div class="p-3 border-bottom border-white border-opacity-10 d-flex justify-content-between align-items-center bg-dark bg-opacity-10">
+                    <span class="fw-bold small px-2">Live Events</span>
+                    <button class="btn btn-sm btn-outline-secondary border-0" id="clearLog">
+                        <i class="bi bi-trash3-fill me-1"></i> Clear
+                    </button>
+                </div>
+                <div class="flex-grow-1 p-0">
+                    <pre id="eventLog" class="mb-0 p-4 font-monospace"></pre>
                 </div>
             </div>
-            <form>
-                <div class="card-body">
-                    <div class="form-floating mb-3 w-100 d-block">
-                        <select class="form-select" name="format" id="selectOutputFormat"
-                                aria-label="Floating label select example">
-                            <option selected value="rgba">rgba</option>
-                            <option value="rgb">rgb</option>
-                            <option value="hex">hex</option>
-                            <option value="hsl">hsl</option>
-                            <option value="hsla">hsla</option>
-                            <option value="invalid">format</option>
-                        </select>
-                        <label for="selectOutputFormat">select output format</label>
-                    </div>
-                    <div class="form-floating mb-3 w-100 d-block">
-                        <input type="text" name="btnText" class="form-control" value="Choose your favorite color"
-                               id="selectOutputBtnText" placeholder="btnText">
-                        <label for="selectOutputBtnText">btnText</label>
-                    </div>
-                    <div class="form-floating mb-3 w-100 d-block">
-                        <input type="text" name="btnClass" class="form-control" value="btn-outline-light d-block w-100"
-                               id="selectOutputBtnClass" placeholder="btnText">
-                        <label for="selectOutputBtnClass">btnClass</label>
-                    </div>
-                    <div class="form-check form-switch mb-3">
-                        <input class="form-check-input" name="disabled" type="checkbox" role="switch"
-                               id="switchDisabled">
-                        <label class="form-check-label" for="switchDisabled">Disabled</label>
-                    </div>
-
-                </div>
-                <div class="card-footer py-3 justify-content-center d-flex">
-                    <button type="submit" class="btn btn-primary rounded-5">updateOptions</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div class="flex-grow-1 p-3">
-        <div id="playground">
-            <pre id="eventLog" class="bg-black px-5 py-3 font-monospace border border-light rounded-5 border-5"></pre>
         </div>
     </div>
 </div>
@@ -92,128 +133,84 @@
 
 <script>
     $(function () {
+        const $body = $('body');
+        const $html = $('html');
+        const $colorPicker = $('#colorPicker');
+        const $eventLog = $('#eventLog');
 
-        const selectOutputFormat = $('#selectOutputFormat');
-        const colorPicker = $('#colorPicker');
-        const logEvent = function (message, data = null) {
-            // Funktion zum Formatieren der aktuellen Uhrzeit
-            const getCurrentTime = () => {
-                const now = new Date();
-                const hours = String(now.getHours()).padStart(2, '0'); // Stunden mit 2 Ziffern
-                const minutes = String(now.getMinutes()).padStart(2, '0'); // Minuten mit 2 Ziffern
-                const seconds = String(now.getSeconds()).padStart(2, '0'); // Sekunden mit 2 Ziffern
-                return `[${hours}:${minutes}:${seconds}]`; // Format: [HH:mm:ss]
-            };
-
-            const timestamp = getCurrentTime(); // Hole die aktuelle Uhrzeit
-
-            // Format the `data` part based on its type
-            let dataString = '';
+        function logEvent(message, data = null) {
+            const now = new Date();
+            const time = now.toLocaleTimeString([], {hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit'});
+            
+            let dataHtml = '';
             if (data) {
-                if (typeof data === 'object') {
-                    // Format an object as a JSON string with indentation for readability
-                    dataString = ' => ' + JSON.stringify(data, null, 2) + '';
-                } else if (typeof data === 'string') {
-                    // Append the string as is
-                    dataString = ' (' + data + ')';
-                }
-            }
-            if (!data && message === 'change.bs.colorPicker') {
-                dataString = ' (null)';
+                // Einfache JSON-Formatierung für schönere Anzeige
+                const json = JSON.stringify(data, null, 2)
+                    .replace(/"([^"]+)":/g, '<span class="json-key">"$1"</span>:')
+                    .replace(/: (true|false|null|\d+(\.\d+)?)/g, ': <span class="json-value">$1</span>')
+                    .replace(/: "([^"]*)"/g, ': <span class="json-string">"$1"</span>');
+                dataHtml = `<div class="mt-2 p-2 bg-dark bg-opacity-25 rounded"><pre class="mb-0 small" style="white-space: pre-wrap;">${json}</pre></div>`;
             }
 
-            // Append the timestamp, message, and the formatted data to the <pre> element
-            $('pre#eventLog').prepend(timestamp + ' > ' + message + dataString + '<br>');
-        };
+            const logEntry = $(`
+                <div class="event-item event-${message} mb-0 p-3 border-bottom border-white border-opacity-10">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <span class="fw-bold text-uppercase small" style="letter-spacing: 1px;">${message}</span>
+                        <span class="text-muted smaller font-monospace">${time}</span>
+                    </div>
+                    ${dataHtml}
+                </div>
+            `).hide();
 
-
-        colorPicker.bsColorPicker({
-            btnClass: 'btn-lg btn-outline-primary',
-            btnText: 'Choose your favorite color',
-            format: 'rgba',
-            hideInputs: true,
-            debug: false
-        });
-
-        selectOutputFormat.on('change', function () {
-            // colorPicker.bsColorPicker('updateOptions', {
-            //     format: $(this).val(),
-            //     btnText: 'the format was changed to ' + $(this).val().toUpperCase(),
-            // });
-        })
-
-        colorPicker
-            .on('change.bs.colorPicker', function (e, data) {
-                logEvent('change.bs.colorPicker', data);
-                colorPicker.bsColorPicker('updateOptions', {
-                    btnText: 'What a beautiful color'
-                });
-            })
-            .on('update.bs.colorPicker', function (e, data) {
-                logEvent('update.bs.colorPicker', 'details on console');
-                if (data) {
-                    setBodyGradient(data.rgba);
-                }
-                console.log('update.bs.colorPicker', data);
-            })
-            .on('all.bs.colorPicker', function () {
-                logEvent('all.bs.colorPicker');
-            })
-            .on('error.bs.colorPicker', function (e, data) {
-                logEvent('error.bs.colorPicker', data);
-            })
-            .on('init.bs.colorPicker', function () {
-                logEvent('init.bs.colorPicker');
-            })
-            .on('show.bs.colorPicker', function () {
-                logEvent('show.bs.colorPicker');
-            })
-            .on('shown.bs.colorPicker', function () {
-                logEvent('shown.bs.colorPicker');
-            })
-            .on('hide.bs.colorPicker', function () {
-                logEvent('hide.bs.colorPicker');
-            })
-            .on('hidden.bs.colorPicker', function () {
-                logEvent('hidden.bs.colorPicker');
-            })
-            .on('reset.bs.colorPicker', function (e, data) {
-                logEvent('reset.bs.colorPicker', 'details on console');
-                if (data) {
-                    setBodyGradient(data.rgba);
-                }
-                console.log('reset.bs.colorPicker', data);
-            })
-            .on('cancel.bs.colorPicker', function (e, data) {
-                logEvent('cancel.bs.colorPicker', 'details on console');
-                const colorSet = colorPicker.bsColorPicker('getColor');
-                console.log('cancel.bs.colorPicker', data);
-                setBodyGradient(colorSet ? colorSet.rgba : null);
-
-            })
-            .on('empty.bs.colorPicker', function (e, data) {
-                logEvent('empty.bs.colorPicker', data);
-                setBodyGradient(null);
-            });
-
-        $('form').on('submit', function (e) {
-            e.preventDefault();
-            const form = $(this);
-            colorPicker.bsColorPicker('updateOptions', {
-                format: form.find('[name="format"]').val(),
-                btnText: form.find('[name="btnText"]').val(),
-                btnClass: form.find('[name="btnClass"]').val(),
-                disabled: form.find('[name="disabled"]').is(':checked')
-            });
-        });
-
-        function setBodyGradient(rgba) {
-            if (rgba) {
-                $('body').css('background', `linear-gradient(to bottom right, rgba(${rgba.r}, ${rgba.g}, ${rgba.b}, ${rgba.a}), rgba(255, 255, 255, 1))`);
-            } else {
-                $('body').css('background', '');
-            }
+            $eventLog.prepend(logEntry);
+            logEntry.slideDown(200);
         }
+
+        function updateBackground(rgba) {
+            if (!rgba) {
+                const color = $colorPicker.bsColorPicker('getColor');
+                rgba = color ? color.rgba : {r: 13, g: 110, b: 253, a: 1};
+            }
+            
+            const baseColor = `rgba(${rgba.r}, ${rgba.g}, ${rgba.b}, ${rgba.a})`;
+            const secondaryColor = '#000000';
+            
+            $body.css('background', `radial-gradient(circle at 20% 30%, ${baseColor} 0%, ${secondaryColor} 150%)`);
+        }
+
+        // Init Color Picker
+        $colorPicker.bsColorPicker({
+            btnClass: 'btn-lg btn-primary rounded-pill shadow-sm',
+            btnText: 'Pick a Color',
+            format: 'hex',
+            hideInputs: false
+        });
+
+        // Event Handlers
+        $colorPicker
+            .on('update.bs.colorPicker', (e, data) => {
+                if (data) updateBackground(data.rgba);
+                logEvent('update', data);
+            })
+            .on('change.bs.colorPicker', (e, data) => logEvent('change', data))
+            .on('show.bs.colorPicker', () => logEvent('show'))
+            .on('hide.bs.colorPicker', () => logEvent('hide'));
+
+        $('#clearLog').on('click', () => $eventLog.empty());
+
+        $('#optionsForm').on('submit', function (e) {
+            e.preventDefault();
+            const data = {};
+            $(this).serializeArray().forEach(item => {
+                data[item.name] = item.value;
+            });
+            data.disabled = $('#switchDisabled').is(':checked');
+            
+            $colorPicker.bsColorPicker('updateOptions', data);
+        });
+
+        // Initial background
+        updateBackground();
     });
 </script>
 </body>
