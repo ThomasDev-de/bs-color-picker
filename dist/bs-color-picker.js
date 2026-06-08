@@ -1832,6 +1832,9 @@
         // Create the dropdown container and insert it after the element
         const dropdown = $('<div>', {
             class: `${classDropdown} dropdown`,
+            css: {
+                zIndex: 1060
+            }
         }).insertAfter($element);
 
         dropdown.data('autoClose', false);
@@ -1867,6 +1870,7 @@
                 maxWidth: '100vw',
                 boxSizing: 'border-box',
                 overflowX: 'auto',
+                zIndex: 9999,
             },
         }).appendTo(dropdown);
 

@@ -59,6 +59,23 @@
         .json-key { color: #888; }
         .json-value { color: #0dcaf0; }
         .json-string { color: #20c997; }
+        
+        /* Ensure dropdown is always on top */
+        .col-lg-5 {
+            position: relative;
+            z-index: 10;
+        }
+        .col-lg-7 {
+            position: relative;
+            z-index: 1;
+        }
+        .dropdown {
+            position: relative;
+            z-index: 1060; /* Higher than other glass cards if necessary */
+        }
+        .dropdown-menu.show {
+            z-index: 9999 !important;
+        }
     </style>
 </head>
 
