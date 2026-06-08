@@ -17,6 +17,7 @@
         body {
             background-attachment: fixed;
             background-size: cover;
+            background-repeat: no-repeat;
             transition: background 0.8s cubic-bezier(0.4, 0, 0.2, 1);
             min-height: 100vh;
             display: flex;
@@ -192,7 +193,9 @@
             const baseColor = `rgba(${rgba.r}, ${rgba.g}, ${rgba.b}, ${rgba.a})`;
             const secondaryColor = '#000000';
             
-            $body.css('background', `radial-gradient(circle at 20% 30%, ${baseColor} 0%, ${secondaryColor} 150%)`);
+            $body.css({
+                'background-image': `radial-gradient(circle at 20% 30%, ${baseColor} 0%, ${secondaryColor} 150%)`
+            });
         }
 
         // Init Color Picker
