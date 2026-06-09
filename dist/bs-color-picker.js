@@ -1833,7 +1833,7 @@
         const dropdown = $('<div>', {
             class: `${classDropdown} dropdown`,
             css: {
-                zIndex: 1060
+                // zIndex: 1060
             }
         }).insertAfter($element);
 
