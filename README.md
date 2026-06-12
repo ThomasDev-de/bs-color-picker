@@ -1,7 +1,7 @@
 # Bootstrap Color Picker Plugin
 
 ![License](https://img.shields.io/badge/license-Mit-blue)
-![Version](https://img.shields.io/badge/version-1.0.6-green)
+![Version](https://img.shields.io/badge/version-1.0.4-green)
 ![Version](https://img.shields.io/badge/bootstrap-4|5-orange)
 ![Version](https://img.shields.io/badge/date-2026/06/12-yellow)
 
@@ -102,8 +102,8 @@ $.bsColorPicker.getDefaults(); // :object
 $.bsColorPicker.utils.getValidOutputFormates(); // :array
 // Check a format for validity
 $.bsColorPicker.utils.isValidOutputFormat('rgb'); // :boolean
-// Gives back a random color in the requested output format
-$.bsColorPicker.utils.getRandomColor('rgba'); // :string p.e. rgba(128, 64, 255, 0.75)
+// Gives back a random color in the requested output format with optional alpha (0-1)
+$.bsColorPicker.utils.getRandomColor('rgba', 0.75); // :string p.e. rgba(128, 64, 255, 0.75)
 // Formats a color string in the possible color formats as an object
 $.bsColorPicker.utils.convertColorFormats('red'); // :array
 // Check whether a value is empty

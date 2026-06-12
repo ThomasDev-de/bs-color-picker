@@ -105,20 +105,24 @@
              * Generates a random color in the requested output format.
              *
              * @param {string} [format='rgba'] - The output format ('rgba', 'rgb', 'hsl', 'hsla', or 'hex').
+             * @param {number} [alpha=1] - The alpha value (0-1). Invalid values create a random alpha value.
              * @return {string|null} The random color as a formatted string, or null if the format is invalid.
              */
-            getRandomColor(format = 'rgba') {
+            getRandomColor(format = 'rgba', alpha = 1) {
                 if (typeof format !== 'string' || !this.isValidOutputFormat(format)) {
                     console.error('Invalid format. Please use one of the following: ' + this.getValidOutputFormates().join(', '));
                     return null;
                 }
 
                 const outputFormat = format.toLowerCase();
+                const alphaValue = typeof alpha === 'number' && alpha >= 0 && alpha <= 1
+                    ? alpha
+                    : Math.random();
                 const rgba = {
                     r: Math.floor(Math.random() * 256),
                     g: Math.floor(Math.random() * 256),
                     b: Math.floor(Math.random() * 256),
-                    a: parseFloat(Math.random().toFixed(2))
+                    a: parseFloat(alphaValue.toFixed(2))
                 };
                 const color = this.convertColorFormats(`rgba(${rgba.r}, ${rgba.g}, ${rgba.b}, ${rgba.a})`);
 
