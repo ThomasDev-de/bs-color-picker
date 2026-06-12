@@ -15,7 +15,7 @@
  * @requires Bootstrap 5.x
  * @requires Bootstrap Icons
  *
- * @version 1.0.6
+ * @version 1.0.4
  * @license Proprietary
  *
  * @example
