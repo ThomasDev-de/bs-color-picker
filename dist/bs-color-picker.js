@@ -15,7 +15,7 @@
  * @requires Bootstrap 5.x
  * @requires Bootstrap Icons
  *
- * @version 1.0.0
+ * @version 1.0.6
  * @license Proprietary
  *
  * @example
@@ -100,6 +100,48 @@
              */
             isValidOutputFormat(format) {
                 return this.getValidOutputFormates().includes(format.toLowerCase());
+            },
+            /**
+             * Generates a random color in the requested output format.
+             *
+             * @param {string} [format='rgba'] - The output format ('rgba', 'rgb', 'hsl', 'hsla', or 'hex').
+             * @return {string|null} The random color as a formatted string, or null if the format is invalid.
+             */
+            getRandomColor(format = 'rgba') {
+                if (typeof format !== 'string' || !this.isValidOutputFormat(format)) {
+                    console.error('Invalid format. Please use one of the following: ' + this.getValidOutputFormates().join(', '));
+                    return null;
+                }
+
+                const outputFormat = format.toLowerCase();
+                const rgba = {
+                    r: Math.floor(Math.random() * 256),
+                    g: Math.floor(Math.random() * 256),
+                    b: Math.floor(Math.random() * 256),
+                    a: parseFloat(Math.random().toFixed(2))
+                };
+                const color = this.convertColorFormats(`rgba(${rgba.r}, ${rgba.g}, ${rgba.b}, ${rgba.a})`);
+
+                if (!color) {
+                    return null;
+                }
+
+                const hsl = color.hsl;
+                const hsla = color.hsla;
+
+                switch (outputFormat) {
+                    case 'hex':
+                        return color.hex;
+                    case 'rgb':
+                        return `rgb(${color.rgb.r}, ${color.rgb.g}, ${color.rgb.b})`;
+                    case 'hsl':
+                        return `hsl(${Math.round(hsl.h)}, ${Math.round(hsl.s * 100)}%, ${Math.round(hsl.l * 100)}%)`;
+                    case 'hsla':
+                        return `hsla(${Math.round(hsla.h)}, ${Math.round(hsla.s * 100)}%, ${Math.round(hsla.l * 100)}%, ${parseFloat(hsla.a.toFixed(2))})`;
+                    case 'rgba':
+                    default:
+                        return `rgba(${color.rgba.r}, ${color.rgba.g}, ${color.rgba.b}, ${parseFloat(color.rgba.a.toFixed(2))})`;
+                }
             },
             /**
              * Checks if a value is empty (null, undefined, empty string or empty array)
@@ -1670,7 +1712,9 @@
             .on('hide.bs.dropdown', function (e) {
                 const isInsideCanvas = dropdown.data('isInsideCanvas'); // Have you clicked on the canvas?
                 const vars = getVars($element);
-                if (isInsideCanvas || (dropdown.data('autoClose') === false && vars.bootstrapVersion < 5)) {
+                const clickEvent = e.clickEvent || (e.originalEvent && e.originalEvent.clickEvent);
+                const isInsideDropdown = clickEvent && $(clickEvent.target).closest(dropdown).length > 0;
+                if (isInsideCanvas || (dropdown.data('autoClose') === 'outside' && vars.bootstrapVersion < 5 && isInsideDropdown)) {
                     if (isInsideCanvas) {
                         dropdown.removeData('isInsideCanvas');
                     }
@@ -1737,6 +1781,16 @@
                     handleOpacityClick($element, pos);
                 }
             });
+
+        const $modal = dropdown.closest('.modal');
+        if ($modal.length) {
+            $modal.on('hide.bs.modal.bsColorPicker', function () {
+                if (dropdown.hasClass('show') || dropdown.find('.dropdown-menu').hasClass('show')) {
+                    dropdown.removeData('isInsideCanvas');
+                    closeDropdown($element, dropdown);
+                }
+            });
+        }
 
         // Bind event listeners to the document for global pointer interactions
         $(document)
@@ -1837,7 +1891,7 @@
             }
         }).insertAfter($element);
 
-        dropdown.data('autoClose', false);
+        dropdown.data('autoClose', 'outside');
         // Move the original element into the dropdown
         $element.appendTo(dropdown);
 
@@ -1857,7 +1911,7 @@
                 class: `btn dropdown-toggle ${settings.btnClass} d-flex align-items-center ${disabled}`,
                 'data-toggle': 'dropdown',
                 'data-bs-toggle': 'dropdown',
-                'data-bs-auto-close': 'false',
+                'data-bs-auto-close': 'outside',
                 'aria-expanded': false,
             }).appendTo(dropdown);
 
